@@ -1,0 +1,134 @@
+{
+  "name": "ducktutor",
+  "displayName": "DuckTutor - Socratic Debugging Assistant",
+  "description": "A Socratic, evidence-based debugging tutor inspired by CS50's Duck. Predict, execute, investigate, and debug without spoilers.",
+  "version": "0.1.0",
+  "publisher": "neuralforge",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Education",
+    "Programming Languages",
+    "Testing"
+  ],
+  "keywords": [
+    "debugging",
+    "rubber-duck",
+    "socratic",
+    "gemma",
+    "python",
+    "tutor"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ducktutor-container",
+          "title": "DuckTutor",
+          "icon": "$(beaker)"
+        }
+      ]
+    },
+    "views": {
+      "ducktutor-container": [
+        {
+          "type": "webview",
+          "id": "ducktutor.mainView",
+          "name": "DuckTutor 🦆",
+          "visibility": "visible"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ducktutor.openPanel",
+        "title": "DuckTutor: Focus DuckTutor Panel",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "ducktutor.debugActiveFile",
+        "title": "DuckTutor: Socratic Debug on Active File / Selection",
+        "icon": "$(debug-console)"
+      },
+      {
+        "command": "ducktutor.setApiKey",
+        "title": "DuckTutor: Configure Gemini / Gemma API Key"
+      },
+      {
+        "command": "ducktutor.resetSession",
+        "title": "DuckTutor: Reset Current Debugging Session"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "ducktutor.debugActiveFile",
+          "when": "editorTextFocus && resourceLangId == python",
+          "group": "7_modification"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "ducktutor.resetSession",
+          "when": "view == ducktutor.mainView",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DuckTutor",
+      "properties": {
+        "ducktutor.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google AI Studio / Gemini API Key (or set GEMINI_API_KEY environment variable)."
+        },
+        "ducktutor.model": {
+          "type": "string",
+          "default": "gemma-4-26b-a4b-it",
+          "enum": [
+            "gemma-4-26b-a4b-it",
+            "gemma-4-31b-it",
+            "gemini-1.5-flash",
+            "gemini-2.5-flash"
+          ],
+          "description": "Model to use for Socratic pedagogical guidance."
+        },
+        "ducktutor.provider": {
+          "type": "string",
+          "default": "google",
+          "enum": [
+            "google",
+            "ollama"
+          ],
+          "description": "AI provider to use (Google AI Studio or local Ollama)."
+        },
+        "ducktutor.ollamaUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "description": "Base URL for Ollama if provider is set to 'ollama'."
+        },
+        "ducktutor.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python interpreter for running test cases and code execution."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm.cmd run package",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "bundle": "node esbuild.js",
+    "package": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.3"
+  }
+}
