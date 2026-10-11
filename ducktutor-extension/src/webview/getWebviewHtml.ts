@@ -756,6 +756,14 @@ export function getWebviewHtml(webview: vscode.Webview, session: Session | null,
       });
     }
 
+    const btnReviewCode = document.getElementById('btn-review-code');
+    if (btnReviewCode) {
+      btnReviewCode.addEventListener('click', () => {
+        showDuckThinking();
+        vscode.postMessage({ command: 'review_code' });
+      });
+    }
+
     if (btnSyncEditor) {
       btnSyncEditor.addEventListener('click', () => {
         vscode.postMessage({ command: 'sync_active_editor' });
@@ -945,10 +953,45 @@ export function getWebviewHtml(webview: vscode.Webview, session: Session | null,
 </html>`;
 }
 
+function getLanguageInfo(language?: string, fileName?: string): { icon: string; name: string; isRunnable: boolean } {
+  const lang = (language || '').toLowerCase();
+  const ext = (fileName || '').split('.').pop()?.toLowerCase() || '';
+
+  if (lang === 'python' || ext === 'py') {
+    return { icon: '🐍', name: 'Python', isRunnable: true };
+  }
+  if (lang === 'javascript' || lang === 'javascriptreact' || ext === 'js' || ext === 'mjs' || ext === 'jsx') {
+    return { icon: '🟨', name: 'JavaScript', isRunnable: true };
+  }
+  if (lang === 'typescript' || lang === 'typescriptreact' || ext === 'ts' || ext === 'tsx') {
+    return { icon: '🔷', name: 'TypeScript', isRunnable: false };
+  }
+  if (lang === 'cpp' || lang === 'c' || ext === 'cpp' || ext === 'c' || ext === 'h') {
+    return { icon: '⚙️', name: 'C/C++', isRunnable: false };
+  }
+  if (lang === 'java' || ext === 'java') {
+    return { icon: '☕', name: 'Java', isRunnable: false };
+  }
+  if (lang === 'rust' || ext === 'rs') {
+    return { icon: '🦀', name: 'Rust', isRunnable: false };
+  }
+  if (lang === 'go' || ext === 'go') {
+    return { icon: '🐹', name: 'Go', isRunnable: false };
+  }
+  if (lang === 'html' || ext === 'html') {
+    return { icon: '🌐', name: 'HTML', isRunnable: false };
+  }
+  if (lang === 'css' || ext === 'css') {
+    return { icon: '🎨', name: 'CSS', isRunnable: false };
+  }
+  return { icon: '📄', name: language ? language.toUpperCase() : 'Code', isRunnable: false };
+}
+
 function renderCustomCodeChatView(session: Session | null): string {
   const code = session?.code || '';
   const lines = code ? code.split('\n').length : 0;
-  const fileName = session?.title?.replace('Duck Debug: ', '') || 'active_file.py';
+  const fileName = session?.title?.replace('Duck Debug: ', '') || 'active_file';
+  const langInfo = getLanguageInfo(session?.language, fileName);
   const lastRun = session?.runs?.[session.runs.length - 1];
 
   let runResultHtml = '';
@@ -980,9 +1023,9 @@ function renderCustomCodeChatView(session: Session | null): string {
   }
 
   const chips = [
-    { label: '💡 Why did it error?', text: 'Why did my code throw this error?' },
-    { label: '🔍 Walk me through this', text: 'Can you walk me through what this function is doing step by step?' },
-    { label: '❓ What does this return?', text: 'What should this code return and why?' },
+    { label: '💡 What could break here?', text: 'What potential edge cases or assumptions could break in this code?' },
+    { label: '🔍 Walk me through this', text: 'Can you walk me through what this logic is doing step by step?' },
+    { label: '❓ What should this return?', text: 'What should this code return and why?' },
     { label: '🪄 Give me a hint', text: 'Can you give me a subtle Socratic hint on what to look for?' },
   ];
 
@@ -995,8 +1038,8 @@ function renderCustomCodeChatView(session: Session | null): string {
     <div class="card" style="margin-bottom: 10px;">
       <div class="card-title">
         <span style="display:flex; align-items:center; gap:6px;">
-          <span>🐍</span> ${escapeHtml(fileName)}
-          <span style="font-size:0.72rem; font-weight:400; color:var(--vscode-descriptionForeground);">(${lines} lines)</span>
+          <span>${langInfo.icon}</span> ${escapeHtml(fileName)}
+          <span style="font-size:0.72rem; font-weight:400; color:var(--vscode-descriptionForeground);">(${lines} lines · ${langInfo.name})</span>
         </span>
         <button class="btn-secondary" id="btn-copy-code" style="padding: 2px 7px; font-size: 0.72rem;">📋 Copy</button>
       </div>
@@ -1008,14 +1051,19 @@ function renderCustomCodeChatView(session: Session | null): string {
             <span class="window-dot dot-yellow"></span>
             <span class="window-dot dot-green"></span>
           </div>
-          <span>Python 3</span>
+          <span>${langInfo.name}</span>
         </div>
-        <pre><code id="active-code-display">${escapeHtml(code || '# Open any Python file (.py) in VS Code editor to start')}</code></pre>
+        <pre><code id="active-code-display">${escapeHtml(code || '// Open any code file in VS Code editor to start')}</code></pre>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 8px;">
-        <button class="btn-primary" id="btn-run-diagnose" style="flex: 2;">
-          <span>▶️</span> Run &amp; Ask Duck
+        ${langInfo.isRunnable ? `
+          <button class="btn-primary" id="btn-run-diagnose" style="flex: 2;">
+            <span>▶️</span> Run &amp; Ask Duck
+          </button>
+        ` : ''}
+        <button class="${langInfo.isRunnable ? 'btn-secondary' : 'btn-primary'}" id="btn-review-code" style="flex: ${langInfo.isRunnable ? '2' : '3'};" title="Ask Duck to inspect your code logic Socratically">
+          <span>🔍</span> Socratic Review
         </button>
         <button class="btn-secondary" id="btn-sync-editor" style="flex: 1;" title="Sync active file from editor">
           <span>🔄</span> Sync

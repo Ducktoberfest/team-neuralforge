@@ -162,6 +162,88 @@ export class PythonRunner {
     return this.executeHarness(payload, dummyCase, codeHash, runId, startTime);
   }
 
+  public async runJavaScriptCode(code: string, scriptTitle = 'Active JavaScript Execution'): Promise<RunResult> {
+    const runId = crypto.randomBytes(6).toString('hex');
+    const codeHash = revision(code);
+    const startTime = Date.now();
+
+    return new Promise<RunResult>((resolve) => {
+      const nodeExec = process.execPath || 'node';
+      const child = cp.spawn(nodeExec, ['-e', code], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+        windowsHide: true,
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let isTimedOut = false;
+
+      const timer = setTimeout(() => {
+        isTimedOut = true;
+        child.kill();
+        resolve({
+          id: runId,
+          caseId: 'custom_run',
+          title: scriptTitle,
+          codeHash,
+          expected: null,
+          actual: null,
+          passed: false,
+          status: 'timeout',
+          error: `Execution timed out after ${this.timeoutSeconds}s. Check for infinite loops or recursion.`,
+          durationMs: Date.now() - startTime,
+        });
+      }, this.timeoutSeconds * 1000);
+
+      child.stdout.on('data', (d) => { stdout += d.toString('utf-8'); });
+      child.stderr.on('data', (d) => { stderr += d.toString('utf-8'); });
+
+      child.on('error', (err) => {
+        clearTimeout(timer);
+        resolve({
+          id: runId,
+          caseId: 'custom_run',
+          title: scriptTitle,
+          codeHash,
+          expected: null,
+          actual: null,
+          passed: false,
+          status: 'runner_error',
+          error: `Could not launch JavaScript runtime: ${err.message}`,
+          durationMs: Date.now() - startTime,
+        });
+      });
+
+      child.on('close', (exitCode) => {
+        clearTimeout(timer);
+        if (isTimedOut) return;
+        const durationMs = Date.now() - startTime;
+        const hasError = exitCode !== 0 || !!stderr;
+        resolve({
+          id: runId,
+          caseId: 'custom_run',
+          title: scriptTitle,
+          codeHash,
+          expected: null,
+          actual: stdout.trim(),
+          passed: !hasError,
+          status: hasError ? 'runtime_error' : 'completed',
+          error: stderr ? stderr.slice(0, 1500) : undefined,
+          stdout: stdout.slice(0, 4096),
+          durationMs,
+        });
+      });
+    });
+  }
+
+  public async runCodeForLanguage(code: string, language: string, title?: string): Promise<RunResult> {
+    const lang = (language || 'python').toLowerCase();
+    if (lang === 'javascript' || lang === 'js' || lang === 'javascriptreact') {
+      return this.runJavaScriptCode(code, title || 'Active JavaScript Execution');
+    }
+    return this.runCustomCode(code, title || 'Active Python Execution');
+  }
+
   private executeHarness(
     payload: string,
     caseItem: Case,

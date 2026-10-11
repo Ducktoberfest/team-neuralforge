@@ -31,9 +31,10 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
     const activeEditor = vscode.window.activeTextEditor;
     if (activeEditor) {
       const fileName = activeEditor.document.fileName.split(/[\\/]/).pop() || 'script.py';
-      this.currentSession = createCustomCodeSession(activeEditor.document.getText(), fileName);
+      const lang = activeEditor.document.languageId || 'python';
+      this.currentSession = createCustomCodeSession(activeEditor.document.getText(), fileName, lang);
     } else {
-      this.currentSession = createCustomCodeSession('', 'my_code.py');
+      this.currentSession = createCustomCodeSession('', 'my_code.py', 'python');
     }
 
     // Auto-sync when active editor switches
@@ -41,8 +42,10 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
       if (editor && this.currentSession && this.currentSession.isCustomCode) {
         const fileName = editor.document.fileName.split(/[\\/]/).pop() || 'script.py';
         const text = editor.document.getText();
-        if (text && text !== this.currentSession.code) {
+        const lang = editor.document.languageId || 'python';
+        if (text && (text !== this.currentSession.code || lang !== this.currentSession.language)) {
           updateSessionCode(this.currentSession, text);
+          this.currentSession.language = lang;
           this.currentSession.title = `Duck Debug: ${fileName}`;
           this.updateWebview();
         }
@@ -98,7 +101,8 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
     }
 
     const fileName = editor.document.fileName.split(/[\\/]/).pop() || 'script.py';
-    this.currentSession = createCustomCodeSession(code, fileName);
+    const lang = editor.document.languageId || 'python';
+    this.currentSession = createCustomCodeSession(code, fileName, lang);
     this.updateWebview();
     if (this.view) {
       this.view.show(true);
@@ -210,14 +214,21 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
         break;
       }
 
+      case 'review_code': {
+        await this.handleReviewCode();
+        break;
+      }
+
       case 'sync_active_editor': {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
           const fileName = editor.document.fileName.split(/[\\/]/).pop() || 'script.py';
           const text = editor.document.getText();
+          const lang = editor.document.languageId || 'python';
           updateSessionCode(this.currentSession, text);
+          this.currentSession.language = lang;
           this.currentSession.title = `Duck Debug: ${fileName}`;
-          addSessionMessage(this.currentSession, 'system', `Synced code from "${fileName}" (${text.split('\n').length} lines).`, 'System');
+          addSessionMessage(this.currentSession, 'system', `Synced ${lang} code from "${fileName}" (${text.split('\n').length} lines).`, 'System');
           this.updateWebview();
         } else {
           vscode.window.showInformationMessage('No active editor tab found to sync from.');
@@ -231,15 +242,16 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
     if (!this.currentSession) {
       return;
     }
+    const lang = this.currentSession.language || 'python';
 
     vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'DuckTutor: Running Python code and consulting Gemma 4...',
+        title: `DuckTutor: Running ${lang} code and consulting Gemma 4...`,
         cancellable: false,
       },
       async () => {
-        const result = await this.runner.runCustomCode(this.currentSession!.code);
+        const result = await this.runner.runCodeForLanguage(this.currentSession!.code, lang);
         recordRunResult(this.currentSession!, result);
 
         let errorOrOutput = '';
@@ -247,19 +259,48 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
 
         if (result.status === 'runtime_error' || result.status === 'syntax_error') {
           errorOrOutput = `Error: ${result.error}\n${result.stdout || ''}`;
-          promptQuestion = `My Python code threw this error when running: ${result.error}. Ask me a focused Socratic question about the line and root assumption without giving the code solution.`;
+          promptQuestion = `My ${lang} code threw this error when running: ${result.error}. Ask me a focused Socratic question about the line and root assumption without giving the code solution.`;
         } else {
           errorOrOutput = `Output:\n${result.stdout || '(No output produced)'}`;
-          promptQuestion = `I ran the Python code and it printed:\n${result.stdout || '(None)'}. Ask me if this matches what I intended and what variable or logic I should examine next.`;
+          promptQuestion = `I ran the ${lang} code and it printed:\n${result.stdout || '(None)'}. Ask me if this matches what I intended and what variable or logic I should examine next.`;
         }
 
         const reply = await this.tutor.askSocraticDuck(
           this.currentSession!.code,
           errorOrOutput,
           this.currentSession!.messages,
-          promptQuestion
+          promptQuestion,
+          lang
         );
 
+        addSessionMessage(this.currentSession!, 'assistant', reply, 'DuckTutor 🦆');
+        this.saveNotebook();
+        this.updateWebview();
+      }
+    );
+  }
+
+  private async handleReviewCode() {
+    if (!this.currentSession) {
+      return;
+    }
+    const lang = this.currentSession.language || 'python';
+
+    vscode.window.withProgress(
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: `DuckTutor: Reviewing ${lang} code Socratically...`,
+        cancellable: false,
+      },
+      async () => {
+        const promptQuestion = `Please review my ${lang} code. What subtle edge case, boundary condition, or potential logic trap should I think through? Ask me a focused Socratic question to guide my reasoning.`;
+        const reply = await this.tutor.askSocraticDuck(
+          this.currentSession!.code,
+          '',
+          this.currentSession!.messages,
+          promptQuestion,
+          lang
+        );
         addSessionMessage(this.currentSession!, 'assistant', reply, 'DuckTutor 🦆');
         this.saveNotebook();
         this.updateWebview();
@@ -278,6 +319,7 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
     let reply = '';
     try {
       if (this.currentSession.isCustomCode) {
+        const lang = this.currentSession.language || 'python';
         const lastRun = this.currentSession.runs[this.currentSession.runs.length - 1];
         const errorOrOutput = lastRun
           ? lastRun.error
@@ -288,7 +330,8 @@ export class DuckTutorViewProvider implements vscode.WebviewViewProvider {
           this.currentSession.code,
           errorOrOutput,
           this.currentSession.messages,
-          userText
+          userText,
+          lang
         );
       } else {
         const ex = getExercise(this.currentSession.exerciseId);

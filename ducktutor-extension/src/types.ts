@@ -93,4 +93,5 @@ export interface Session {
   modelCalls: number;
   transferPrediction: number | null;
   transferCorrect: boolean | null;
+  language?: string;
 }
