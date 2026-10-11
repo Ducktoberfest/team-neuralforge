@@ -42,11 +42,13 @@ Model calls happen only on explicit actions. Editing code, switching workspaces 
 
 ## Optional Python practice
 
-Choose **Practice exercises**, then select basket, largest, total, closures or countdown. Each exercise has five reviewed cases and a prepared transfer question:
+Choose **Practice exercises**, then select basket, largest, total, closures, countdown, shallow_copy or scope_leak. Each exercise has five reviewed cases and a prepared transfer question:
 
 **Predict → investigate → edit → check → reflect.**
 
 Gemma receives the learner's current code, reasoning, confidence and real run evidence. It can select a reviewed test; Python executes it and determines the verdict. Passing all supplied checks verifies those cases for that code revision, not general correctness or mastery. Editing invalidates the previous pass status.
+
+- **Offline synthesized sound effects:** Pure-Python WAV audio synthesizer (`sound_effects.py`, 0 external dependencies) with authentic rubber duck quacks, squeaks, and celebratory fanfare on predictions, hints, and verified solutions, with a sidebar toggle and interactive "Squeeze the Duck" button.
 
 ### Trusted local demo
 
@@ -87,7 +89,7 @@ python evaluate_tutor.py --list
 python evaluate_tutor.py --case aliases --model gemma-4-26b-a4b-it
 ```
 
-**50 automated tests passed** on Linux, Python 3.12.14 and Streamlit 1.65.0. Tests cover real exercise execution, both UI flows, saved sessions, current-code context, reported-output attribution, explanatory replies, bounded repetition repair and selected anti-spoiler/error checks. Mocked responses do not establish model teaching quality.
+**56 automated tests passed** across exercise execution, own-code and practice UI flows, saved sessions, audio effects, current-code context, reported-output attribution, explanatory replies, bounded repetition repair and selected anti-spoiler/error checks. Mocked responses do not establish model teaching quality.
 
 The live evaluation runner includes six conversations about aliasing, print/return, loop boundaries, JavaScript filtering, solution requests and correct predictions of buggy behavior. It prompts privately for the key, prints validated replies and saves a transcript with an **unscored human-review rubric**. `--all` explicitly runs the full set. Reports go to ignored `eval_results/` by default.
 
@@ -101,14 +103,15 @@ Run the immediate demonstration locally using hosted 26B. Public deployment stil
 
 ## Source layout
 
-- `app.py`: application shell, connection settings, practice flow and notebook.
+- `app.py`: application shell, connection settings, workspace switcher, practice flow and notebook.
 - `workspace_ui.py`: own-code workspace, draft restoration and chat rendering.
+- `sound_effects.py`: pure-Python offline WAV audio synthesizer and pedagogical audio triggers.
 - `core.py`: sessions, revisions, model-action budgets, learning notes and persistence.
 - `tutor.py`: Gemma transport, context construction and response validation.
 - `runner.py`, `worker.py`: reviewed Python exercise execution.
-- `exercises.py`: exercise bank and prepared transfer questions.
+- `exercises.py`: 7-exercise catalog (35 test cases) and prepared transfer questions.
 - `evaluate_tutor.py`, `conversation_evals.json`: live conversation review.
-- `tests/`: automated behavior checks.
+- `tests/`: 56 automated behavior and interface checks.
 
 Python's standard library implements the core; Streamlit is the only direct package dependency. Application code is MIT-licensed; Gemma and dependencies retain their own licenses.
 

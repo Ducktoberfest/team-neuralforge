@@ -88,6 +88,11 @@ def fallback_question(session, exercise):
         return f"All {len(exercise.cases)} checked cases passed for this revision. What changed in your reasoning?"
     if current and current[-1]["case_id"] == "provided_empty" and not current[-1]["passed"]:
         return "Compare the returned list with the caller's basket. Which requirement does this result leave unmet?"
+    failed = [r["case_id"] for r in session["runs"] if r["code_hash"] == session["code_hash"] and not r["passed"]]
+    if "separate_cells" in failed:
+        return "What happens to the inner lists when an outer list is copied with list() or .copy()?"
+    if "consecutive_calls" in failed:
+        return "What happens to variable lookup when an assignment appears inside an inner function?"
     if session["hint_level"] > 0:
         return exercise.hints[session["hint_level"]]
     if session["prediction_matches_execution"] is True:
@@ -157,8 +162,14 @@ def predict(session, exercise, runner, model, choice, confidence, explanation):
     if result["status"] != "completed":
         return  # User can retry after repairing the runner. No invented observation.
     session["initial_observation"] = result["actual"]
+    parsed_choice = None
+    if choice != "I'm not sure":
+        try:
+            parsed_choice = json.loads(choice)
+        except (json.JSONDecodeError, TypeError):
+            parsed_choice = choice
     session["prediction_matches_execution"] = (
-        None if choice == "I'm not sure" else json.loads(choice) == result["actual"])
+        None if choice == "I'm not sure" else parsed_choice == result["actual"])
     session["stage"] = "guide"
     message(session, f"Prediction: {choice}. Confidence: {confidence}/5. {explanation}", "Learner", "user")
     decide(session, exercise, model, "prediction_observed", ("ask_question", "explain_concept", "give_hint"))

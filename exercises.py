@@ -284,5 +284,137 @@ COUNTDOWN = Exercise(
     ),
 )
 
-EXERCISES = {e.id: e for e in (BASKET, LARGEST, TOTAL, CLOSURES, COUNTDOWN)}
+EXERCISES_5 = {e.id: e for e in (BASKET, LARGEST, TOTAL, CLOSURES, COUNTDOWN)}
+
+SHALLOW_COPY = Exercise(
+    id="shallow_copy", title="The copy that wasn't independent",
+    concept="Nested list shallow copying and shared reference mutation",
+    spec=("clone_grid creates and returns a 2D copy of the provided grid (a list of row lists). "
+          "Modifying any cell in the returned copy must not mutate or affect the original grid."),
+    starter=("def clone_grid(grid):\n"
+             "    return list(grid)\n"),
+    entrypoint="clone_grid",
+    prediction_code=("original = [['A', 'B'], ['C', 'D']]\n"
+                     "copy = clone_grid(original)\n"
+                     "copy[0][0] = 'Z'\n"
+                     "print(original[0][0])"),
+    choices=("A", "Z", "Error", "I'm not sure"),
+    prediction=Case("prediction", "Mutate copied grid cell",
+                    "Observe that original grid was modified by modifying the copy",
+                    "grid = [['A', 'B'], ['C', 'D']]\ndupe = fn(grid)\ndupe[0][0] = 'Z'\nactual = grid[0][0]", "A"),
+    cases=(
+        Case("separate_cells", "Modify first row cell", "Changing duplicate cell leaves original intact",
+             'g = [["X", "O"], ["O", "X"]]\nc = fn(g)\nc[0][1] = "X"\n'
+             'actual = {"orig_cell": g[0][1], "copy_cell": c[0][1], "different": g[0][1] != c[0][1]}',
+             {"orig_cell": "O", "copy_cell": "X", "different": True}),
+        Case("append_to_row", "Append element to row", "Row in copy grows independently without affecting original",
+             'g = [[1, 2], [3, 4]]\nc = fn(g)\nc[1].append(5)\n'
+             'actual = {"orig_len": len(g[1]), "copy_len": len(c[1])}',
+             {"orig_len": 2, "copy_len": 3}),
+        Case("empty_grid", "Empty grid input", "Empty list input must return a new empty list",
+             'actual = fn([])', []),
+        Case("single_row", "Single-row grid", "One row boundary must be independently copied",
+             'g = [["solo"]]\nc = fn(g)\nc[0][0] = "changed"\n'
+             'actual = {"original": g[0][0], "copy": c[0][0]}',
+             {"original": "solo", "copy": "changed"}),
+        Case("separate_instances", "Identity check across rows", "Each row in the copy must be a distinct object in memory",
+             'g = [[10, 20], [30, 40], [50, 60]]\nc = fn(g)\n'
+             'actual = [c[i] is not g[i] for i in range(len(g))]',
+             [True, True, True]),
+    ),
+    solution=("def clone_grid(grid):\n"
+              "    return [list(row) for row in grid]\n"),
+    explanation=("A shallow copy such as list(grid) or grid.copy() creates a new outer list, but every "
+                 "inner row is still a shared reference to the same list in memory. To make an independent "
+                 "grid, copy each inner row individually (e.g. using a list comprehension: [list(row) for row in grid])."),
+    hints=("Notice which grid was printed: original[0][0]. Why did modifying the copy affect the original?",
+           "What does list(grid) do to the inner elements? Are the row lists new objects, or the same objects?",
+           "How can you ensure that each row inside the grid is also newly copied when building the new outer list?"),
+    forbidden=(r"\bdeepcopy\b", r"\[\s*list\(row\)\s+for\s+row\s+in\s+grid\s*\]"),
+    reflection=TransferReflection(
+        transfer_snippet=("person = {'name': 'Ada', 'hobbies': ['reading']}\n"
+                          "clone = person.copy()\n"
+                          "clone['hobbies'].append('coding')\n"
+                          "print(person['hobbies'])"),
+        transfer_prompt="What will print(person['hobbies']) display?",
+        transfer_choices=("['reading']", "['reading', 'coding']", "['coding']", "Error"),
+        correct_choice_index=1,
+        explanation=("Dictionary .copy() creates a shallow copy. The outer dict is new, but the nested 'hobbies' "
+                     "list is shared by both dictionaries. Appending via clone['hobbies'] mutates the list "
+                     "referenced by person['hobbies'], just like rows in a shallow-copied 2D grid."),
+    ),
+)
+
+SCOPE_LEAK = Exercise(
+    id="scope_leak", title="The variable found too late",
+    concept="Enclosing variable scope and UnboundLocalError",
+    spec=("make_counter creates and returns an incrementer function tick(step=1). "
+          "Starting from start (default 0), each call to tick increments the count by step "
+          "and returns the new cumulative count. Independent counters must maintain independent counts."),
+    starter=("def make_counter(start=0):\n"
+             "    count = start\n"
+             "    def tick(step=1):\n"
+             "        count += step\n"
+             "        return count\n"
+             "    return tick\n"),
+    entrypoint="make_counter",
+    prediction_code=("c = make_counter(0)\n"
+                     "try:\n"
+                     "    print(c())\n"
+                     "except UnboundLocalError:\n"
+                     "    print('UnboundLocalError')"),
+    choices=("1", "0", "UnboundLocalError", "I'm not sure"),
+    prediction=Case("prediction", "First call to counter",
+                    "Observe that assigning without nonlocal triggers UnboundLocalError",
+                    'c = fn(0)\n'
+                    'try:\n'
+                    '    actual = c()\n'
+                    'except UnboundLocalError:\n'
+                    '    actual = "UnboundLocalError"', 1),
+    cases=(
+        Case("consecutive_calls", "Three sequential increments", "Count increments by 1 on each call",
+             'c = fn(0)\nactual = [c(), c(), c()]', [1, 2, 3]),
+        Case("custom_step", "Custom step increments", "Count increments by custom step parameter",
+             'c = fn(10)\nactual = [c(5), c(10)]', [15, 25]),
+        Case("negative_steps", "Negative step decrements", "Count decrements when step is negative",
+             'c = fn(5)\nactual = [c(-2), c(-3)]', [3, 0]),
+        Case("independent_instances", "Two separate counters", "Modifying counter A does not modify counter B",
+             'a = fn(0)\nb = fn(100)\na()\na()\nactual = {"a": a(), "b": b()}', {"a": 3, "b": 101}),
+        Case("default_start", "Default start parameter", "Omitting start begins from 0",
+             'c = fn()\nactual = c(4)', 4),
+    ),
+    solution=("def make_counter(start=0):\n"
+              "    count = start\n"
+              "    def tick(step=1):\n"
+              "        nonlocal count\n"
+              "        count += step\n"
+              "        return count\n"
+              "    return tick\n"),
+    explanation=("In Python, assigning to a variable (including count += step) inside a function causes "
+                 "Python to treat it as local to that function. Because count is read before it has been "
+                 "locally assigned, Python raises UnboundLocalError. Declaring 'nonlocal count' tells Python "
+                 "to rebind the variable in the enclosing make_counter scope."),
+    hints=("Why did Python report an UnboundLocalError when 'count' is clearly initialized in make_counter?",
+           "When Python sees 'count += step' inside tick(), does it treat 'count' as a local variable or as an outer variable?",
+           "Which Python keyword informs the inner function that an assigned variable belongs to the enclosing function's scope?"),
+    forbidden=(r"\bnonlocal\b", r"count\s*\[0\]"),
+    reflection=TransferReflection(
+        transfer_snippet=("score = 10\n"
+                          "def boost():\n"
+                          "    score += 5\n"
+                          "    return score\n\n"
+                          "try:\n"
+                          "    boost()\n"
+                          "except UnboundLocalError:\n"
+                          "    print('UnboundLocalError')"),
+        transfer_prompt="What will running this code print?",
+        transfer_choices=("15", "UnboundLocalError", "10", "Error: NameError"),
+        correct_choice_index=1,
+        explanation=("Even though 'score' exists in the global module scope, 'score += 5' inside boost() is an "
+                     "assignment, which marks 'score' as local to boost(). Since it is read before assignment, "
+                     "Python raises UnboundLocalError unless 'global score' is declared."),
+    ),
+)
+
+EXERCISES = {e.id: e for e in (BASKET, LARGEST, TOTAL, CLOSURES, COUNTDOWN, SHALLOW_COPY, SCOPE_LEAK)}
 

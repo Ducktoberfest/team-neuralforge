@@ -7,7 +7,8 @@ from unittest.mock import patch
 
 from core import (check_correction, guide, list_saved_sessions, load_notebook,
                   load_session, new_session, predict, record_transfer, reveal, save_notebook, sync_code)
-from exercises import BASKET, CLOSURES, COUNTDOWN, EXERCISES, TransferReflection
+from exercises import (BASKET, CLOSURES, COUNTDOWN, EXERCISES, SCOPE_LEAK,
+                       SHALLOW_COPY, TransferReflection)
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
 
@@ -50,6 +51,8 @@ class LearningTests(unittest.TestCase):
             "total": 5,
             "closures": [20, 20, 20],
             "countdown": [3, 2, 1],
+            "shallow_copy": "Z",
+            "scope_leak": "UnboundLocalError",
         }
         for exercise in EXERCISES.values():
             with self.subTest(exercise=exercise.id):
@@ -82,6 +85,53 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(self.session["outcome"], "in_progress")
         ctx = context_for(self.session, BASKET, "reply", ["ask_question"], [])
         self.assertEqual(ctx["evidence"], [])
+
+    def test_shallow_copy_learning_path_and_verification(self):
+        session = new_session(SHALLOW_COPY)
+        predict(session, SHALLOW_COPY, self.runner, self.model, "A", 4, "I expected an independent copy")
+        self.assertFalse(session["prediction_matches_execution"])
+        self.assertEqual(session["initial_observation"], "Z")
+        self.assertEqual(session["stage"], "guide")
+
+        # Ineffective fix: grid.copy() is still shallow
+        ineffective = "def clone_grid(grid):\n    return grid.copy()\n"
+        sync_code(session, ineffective)
+        check_correction(session, SHALLOW_COPY, self.runner, self.model)
+        self.assertIsNone(session["verified_hash"])
+        self.assertFalse(session["runs"][-1]["passed"])
+
+        # Canonical solution
+        sync_code(session, SHALLOW_COPY.solution)
+        check_correction(session, SHALLOW_COPY, self.runner, self.model)
+        self.assertEqual(session["verified_hash"], session["code_hash"])
+        self.assertEqual(session["stage"], "reflect")
+        self.assertEqual(session["outcome"], "checked_cases_passed")
+
+    def test_scope_leak_learning_path_and_verification(self):
+        session = new_session(SCOPE_LEAK)
+        predict(session, SCOPE_LEAK, self.runner, self.model, "1", 5, "I expected count to increment")
+        self.assertFalse(session["prediction_matches_execution"])
+        self.assertEqual(session["initial_observation"], "UnboundLocalError")
+        self.assertEqual(session["stage"], "guide")
+
+        # Ineffective fix: assigning without nonlocal still triggers UnboundLocalError
+        ineffective = ("def make_counter(start=0):\n"
+                       "    count = start\n"
+                       "    def tick(step=1):\n"
+                       "        count = count + step\n"
+                       "        return count\n"
+                       "    return tick\n")
+        sync_code(session, ineffective)
+        check_correction(session, SCOPE_LEAK, self.runner, self.model)
+        self.assertIsNone(session["verified_hash"])
+        self.assertFalse(session["runs"][-1]["passed"])
+
+        # Canonical solution
+        sync_code(session, SCOPE_LEAK.solution)
+        check_correction(session, SCOPE_LEAK, self.runner, self.model)
+        self.assertEqual(session["verified_hash"], session["code_hash"])
+        self.assertEqual(session["stage"], "reflect")
+        self.assertEqual(session["outcome"], "checked_cases_passed")
 
     def test_no_fake_ai_success_when_unavailable(self):
         predict(self.session, BASKET, self.runner, UnavailableModel(), '["banana"]', 2, "Unsure")
@@ -249,10 +299,26 @@ class LearningTests(unittest.TestCase):
             with self.subTest(spoiler=spoiler), self.assertRaises(ModelError):
                 parse_decision(json.dumps({**base, "message": spoiler}), countdown_ctx)
 
+        shallow_session = new_session(SHALLOW_COPY)
+        shallow_ctx = context_for(shallow_session, SHALLOW_COPY, "test", ["ask_question"], [])
+        for spoiler in ["Use deepcopy on the grid", "Do [list(row) for row in grid]"]:
+            with self.subTest(spoiler=spoiler), self.assertRaises(ModelError):
+                parse_decision(json.dumps({**base, "message": spoiler}), shallow_ctx)
+
+        scope_session = new_session(SCOPE_LEAK)
+        scope_ctx = context_for(scope_session, SCOPE_LEAK, "test", ["ask_question"], [])
+        for spoiler in ["Add nonlocal count inside tick", "Store in count[0]"]:
+            with self.subTest(spoiler=spoiler), self.assertRaises(ModelError):
+                parse_decision(json.dumps({**base, "message": spoiler}), scope_ctx)
+
         valid_closures = parse_decision(json.dumps(base), closures_ctx)
         self.assertEqual(valid_closures["message"], "What is the value of i?")
         valid_countdown = parse_decision(json.dumps(base), countdown_ctx)
         self.assertEqual(valid_countdown["message"], "What is the value of i?")
+        valid_shallow = parse_decision(json.dumps(base), shallow_ctx)
+        self.assertEqual(valid_shallow["message"], "What is the value of i?")
+        valid_scope = parse_decision(json.dumps(base), scope_ctx)
+        self.assertEqual(valid_scope["message"], "What is the value of i?")
 
     def test_transfer_reflection_metadata_and_interactive_check(self):
         for exercise_id, exercise in EXERCISES.items():

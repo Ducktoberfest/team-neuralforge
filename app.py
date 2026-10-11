@@ -12,6 +12,7 @@ from exercises import EXERCISES
 from workspace_ui import (hydrate_widgets, render_history, render_own_code, session_title,
                           sync_widgets, workspace_scope)
 from runner import Runner
+from sound_effects import queue_sound, render_audio_sidebar, render_pending_sound
 from tutor import Gemma, ModelError, context_for, parse_decision
 
 def inject_custom_styles():
@@ -234,6 +235,10 @@ with st.sidebar:
                                       key="resume_session_select")
             st.button("Load Session", key="load_session_btn", use_container_width=True,
                       on_click=restore_session, args=(chosen_sid,))
+    st.divider()
+    render_audio_sidebar()
+
+render_pending_sound()
 
 session = st.session_state.session
 sid = session["id"]
@@ -303,6 +308,10 @@ with learn:
                              use_container_width=True, key="check_correction"):
                     with st.spinner("Checking code and investigating the result…"):
                         check_correction(session, exercise, runner, model)
+                        if session.get("verified_hash") and session.get("verified_hash") == session.get("code_hash"):
+                            queue_sound("success")
+                        else:
+                            queue_sound("retry")
                         persist(session)
                     st.rerun()
                 if session["verified_hash"] == session["code_hash"]:
@@ -372,6 +381,7 @@ with learn:
                     else:
                         with st.spinner("Running Python and asking Gemma…"):
                             predict(session, exercise, runner, model, choice, confidence, explanation)
+                            queue_sound("curious")
                             persist(session)
                         st.rerun()
                 if session["runs"] and session["runs"][-1]["status"] != "completed":
@@ -408,6 +418,7 @@ with learn:
                                  use_container_width=True):
                         with st.spinner("Choosing a hint…"):
                             guide(session, exercise, runner, model, stronger=True)
+                            queue_sound("hint")
                             persist(session)
                         st.rerun()
                 with two:
@@ -431,6 +442,10 @@ with learn:
                     submit_followup = st.form_submit_button("Submit Transfer Prediction")
                 if submit_followup and followup:
                     record_transfer(session, exercise, followup, reason)
+                    if session.get("followup_status") == "correct_on_prepared_question":
+                        queue_sound("success")
+                    else:
+                        queue_sound("retry")
                     persist(session)
                     st.rerun()
                 if session.get("followup_status") != "not_attempted":
