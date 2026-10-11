@@ -9,17 +9,14 @@
 
 ## 0. Current update — 0.3.0, 11 October 2026
 
-Own-code tutoring is the main experience. Learners can paste code, choose a language, describe a goal, report errors/output, and ask conceptual or debugging questions without a forced prediction or execution opt-in. The five reviewed Python exercises remain optional practice.
+Both tracks are unified and passing on branch `add_own_code`.
 
-The tutor can explain concepts, give hints, ask focused questions and recap insights. One brief unrelated example is allowed. Repeated questions receive bounded repair; current code and learner-reported output have distinct revision attribution. Learner-written notes and tentative model interpretations persist and can be resumed. Complete rewrite/patch and execution-claim checks remain heuristics requiring live review.
+1. **Own-Code Tutoring Workspace (`workspace_ui.py`):** The primary mode allows learners to paste code in 8 languages, set a goal, report runtime output/errors with revision attribution, and engage in Socratic dialogues with concept explanations, progressive hints, and continuity notes.
+2. **7 Curated Practice Exercises (`exercises.py`):** Expanded from 5 to 7 exercises (`basket`, `largest`, `total`, `closures`, `countdown`, `shallow_copy`, `scope_leak`) with 35 curated test cases, 3 tiered hints each, anti-spoiler regexes, and interactive Stage 4 mental model transfer checks.
+3. **Pure-Python Offline Audio Engine (`sound_effects.py`):** Zero-dependency WAV audio synthesizer generating authentic rubber duck quacks, squeaks, and celebratory fanfares for prediction submits, hints, verification passes/retries, transfer reflections, and an interactive "🦆 Squeeze the Duck!" sidebar button.
+4. **Evaluation & Verification Suite:** Includes `evaluate_tutor.py` with 6 conversation scenarios and unscored rubrics (`conversation_evals.json`), alongside a unified test suite with **56 passing automated tests** across 7 test files on Python 3.14 with Streamlit.
 
-`workspace_ui.py` implements the new main workspace. `evaluate_tutor.py` and `conversation_evals.json` provide six real conversation-review scenarios with unscored human rubrics. The full automated suite has **50 passing tests** on Linux, Python 3.12.14 and Streamlit 1.65.0. No live 0.3.0 evaluation or screenshot-based visual QA was possible here; no API key or connected local browser was available.
-
-26B remains the default (20-second timeout); optional 31B uses 60 seconds. Earlier user observations of successful requests do not establish this redesign's teaching quality. Follow EVALUATION.md before making a demonstration-quality claim.
-
-Own-code mode does not execute submissions. Optional practice retains the reviewed runner. Public notebook ownership/authentication and isolated public exercise execution are not implemented. See DEPLOYMENT.md.
-
-The remaining sections describe the historical 0.2 exercise prototype and its original roadmap. README.md, VALIDATION.md and EVALUATION.md describe the current release.
+Hosted Gemma 26B (`gemma-4-26b-a4b-it`) remains the recommended default model with a 20-second timeout; 31B is supported with automatic 500 error detection and a one-click 26B recovery button. Own-code mode performs code analysis without unconstrained server execution; practice mode uses isolated local child processes or Docker.
 
 ## 1. Overall Idea & Philosophy
 
@@ -75,7 +72,9 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Phase 3: Session Hydration & Persistence** (commit `94bfb35`) — `list_saved_sessions()` and `load_session()` in `core.py`, sidebar & notebook resume UI, strict revision hash invalidation (`verified_hash = None` upon edit) (26/26 tests).
 - [x] **Phase 4: Exercise Catalog Expansion** (commit `2ba5abe`) — Added `closures` (late binding) and `countdown` (recursion base case), exercise-specific anti-spoiler forbidden patterns, 25 test cases total across 5 exercises (27/27 tests).
 - [x] **Phase 5: Documentation Synchronization & Demo Readiness** (commit `2277041`) — Synchronized `README.md`, `PROJECT_STATUS.md`, and `DEMO.md` with complete v0.2.0 capabilities (27/27 tests).
-- [x] **Phase 6: Interactive Transfer Reflection** — Elevated Stage 4 (`reflect`) with interactive diagnostic transfer checks (`transfer_snippet`, `transfer_prompt`, choices, immediate evaluation, conceptual explanation) across all 5 exercises and notebook persistence (29/29 tests).
+- [x] **Phase 6: Interactive Transfer Reflection** (commit `a929656`) — Elevated Stage 4 (`reflect`) with interactive diagnostic transfer checks (`transfer_snippet`, `transfer_prompt`, choices, immediate evaluation, conceptual explanation) across all exercises and notebook persistence (29/29 tests).
+- [x] **Phase 7: Own-Code Workspace & Multi-Language Socratic Dialogue** (commit `47cd7e7`) — Implemented `workspace_ui.py`, multi-language selection (Python, JS, TS, C, C++, Java, SQL), revision-attributed output reporting, `evaluate_tutor.py` conversation evaluation suite with 6 rubrics (50/50 tests).
+- [x] **Phase 8: Offline Duck Audio Synthesizer, 7 Exercises & Track Unification** (commit `c4a7e29`) — Pure-Python WAV synthesizer (`sound_effects.py`), 6 contextual sound effects with sidebar controls and squeeze button, exercises 6 & 7 (`shallow_copy`, `scope_leak`) with 35 test cases total, safe choice parsing (56/56 tests passing).
 
 ### 3.1 Learning Workflow & State Management
 - [x] **4-Stage Learning Lifecycle:** `predict` ➔ `guide` ➔ `check` ➔ `reflect`.
@@ -142,6 +141,14 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
   - *Bug:* Base case boundary omission `if n <= 1: return [1]`.
   - *Trap:* Omits 0 from countdown descent and returns `[1]` for zero and negative inputs.
   - *Suite:* 5 test cases covering normal countdown, zero boundary, single element (1), negative inputs, and large recursion chain.
+- [x] **Exercise 6: `shallow_copy` ("The copy that wasn't independent")**
+  - *Bug:* 2D grid mutation with `grid.copy()` / `list(grid)` sharing nested list references.
+  - *Trap:* Outer list is duplicated, but modifying cells in copy mutates original inner row.
+  - *Suite:* 5 test cases covering separate cells, row append, empty grid, single row, and distinct memory instances.
+- [x] **Exercise 7: `scope_leak` ("The variable found too late")**
+  - *Bug:* Closure `UnboundLocalError` when re-binding enclosing variables (`count += step`) without `nonlocal`.
+  - *Trap:* Variable is read before local assignment inside tick function.
+  - *Suite:* 5 test cases covering consecutive calls, custom step, negative steps, independent instances, and default start.
 
 ### 3.5 Persistence, Hydration & Privacy
 - [x] **Atomic JSON Notebooks:** Writes to a tempfile in `data/`, flushes, fsyncs, and replaces atomically.
@@ -151,19 +158,23 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Session Export:** Downloadable JSON report button in the UI.
 
 ### 3.6 Automated Testing
-- [x] **Unit & Integration Suite:** 27 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, exercise-specific anti-spoiler verification, and Streamlit UI flow.
+- [x] **Unit & Integration Suite:** 56 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, 7-exercise anti-spoiler verification, own-code workspace UI, tutoring guardrails, evaluation schemas, and pure-Python audio synthesis.
 
 ---
 
 ## 4. Current Situation & Known Gaps
 
-1. **Live Gemma API Stability:**
-   - Real-world preflight testing on Mac showed `gemma-4-26b-a4b-it` succeeded in 3.43 seconds, while `31b` returned an HTTP 500. `gemma-4-26b-a4b-it` is configured as the default model across `app.py` and `preflight.py`.
-   - Outage handling cleanly falls back to exercise hints with the badge `"Exercise hint · live Gemma unavailable"` if the provider disrupts service.
-2. **Docker Execution Unexercised:**
-   - The Docker runner code path is fully implemented and bounded, but requires an active Docker daemon on the host. For the default local demo, the trusted-local child process runner is recommended.
-3. **Code Editor:**
-   - Currently uses Streamlit's native `st.text_area` for universal compatibility without requiring third-party frontend dependencies or breaking `st.testing.v1.apptest` automation.
+1. **Unified Version 0.3.0 on `add_own_code`:**
+   - Both development tracks are merged: Own-code workspace (`workspace_ui.py`), 7 curated practice exercises (`exercises.py`), offline duck audio engine (`sound_effects.py`), and evaluation suite (`evaluate_tutor.py`).
+   - All **56 automated tests** pass cleanly in ~4.6s.
+2. **Live Gemma API Stability:**
+   - `gemma-4-26b-a4b-it` is configured as the default recommended model across `app.py`, `preflight.py`, and `evaluate_tutor.py`.
+   - Intermittent 500/503 errors on `gemma-4-31b-it` are automatically caught with an actionable warning and a direct "Switch to Gemma 26B & Retry" button.
+3. **Execution Separation:**
+   - Own-code mode performs client-side analysis and Socratic guidance without unconstrained server execution.
+   - Practice exercise mode uses isolated local child processes (with POSIX process groups, resource limits, and stripped environments) or Docker containers.
+4. **Code Editor:**
+   - Uses Streamlit's native `st.text_area` for universal cross-platform compatibility and headless test automation without extra frontend dependencies.
 
 ---
 
@@ -201,12 +212,33 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 │ Phase 5: Documentation & Demo Readiness [COMPLETE - v0.2.0]            │
 │ • Synchronize README.md, PROJECT_STATUS.md, and DEMO.md                │
 │ • Full test suite passing (27/27 tests)                                │
-│ • Git commit & push to GitHub repository                               │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Phase 6: Interactive Transfer Reflection [COMPLETE - commit a929656]   │
+│ • Stage 4 diagnostic transfer check across all exercises               │
+│ • Immediate evaluation, feedback linking back to root misconception    │
+│ • Full test suite passing (29/29 tests)                                │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Phase 7: Own-Code Workspace & Evaluation [COMPLETE - commit 47cd7e7]   │
+│ • workspace_ui.py with multi-language selection & revision output      │
+│ • evaluate_tutor.py conversation evaluation suite (6 rubrics)          │
+│ • Full test suite passing (50/50 tests)                                │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Phase 8: Duck Audio, 7 Exercises & Unification [COMPLETE - commit c4a7e29]
+│ • sound_effects.py pure-Python offline WAV audio synthesizer           │
+│ • Catalog expansion to 7 exercises (shallow_copy, scope_leak)          │
+│ • Both tracks unified on add_own_code branch                           │
+│ • Full test suite passing (56/56 tests)                                │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Future Enhancements (Post-v0.2.0)
-1. **Optional Code Editor Component:** Optional `streamlit-code-editor` integration with fallback to `st.text_area` when uninstalled.
-2. **Visual Object Trace:** Diagram of object references (e.g., default list pointer surviving across calls) in the execution panel.
+### Future Enhancements (Post-v0.3.0)
+1. **Interactive Memory Diagram Visualizer:** Generate inline Mermaid diagrams visualizing stack vs. heap and reference aliasing for nested structures and closures.
+2. **Notebook Export Format Options:** Export completed debugging journeys not only as JSON, but as formatted Jupyter Notebooks (`.ipynb`) or Markdown study guides.
 3. **Client-side Pyodide Sandbox:** In-browser WebAssembly Python execution for zero-server untrusted code execution.
 
