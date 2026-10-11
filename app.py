@@ -11,16 +11,198 @@ from exercises import EXERCISES
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
 
-st.set_page_config(page_title="DuckTutor · Think it through", page_icon="🦆", layout="wide")
-st.markdown("""<style>
-.block-container {max-width:1280px;padding-top:2rem;}
-h1,h2,h3 {letter-spacing:-.035em;}
-div[data-testid="stMetric"] {border:1px solid #e5e1d8;border-radius:12px;padding:12px;}
-div[data-testid="stTextArea"] textarea {font-family:ui-monospace,SFMono-Regular,monospace;font-size:14px;}
-div[data-testid="stChatMessage"] {border:1px solid #e5e1d8;border-radius:14px;}
-.eyebrow {color:#667064;font-size:12px;letter-spacing:.14em;font-weight:700;}
-.hero-note {color:#687069;font-size:17px;margin-bottom:22px;}
+def inject_custom_styles():
+    st.markdown("""<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Typography & Base Layout */
+html, body, [data-testid="stAppViewContainer"], .stApp {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.block-container {
+    max-width: 1280px;
+    padding-top: 1.5rem;
+    padding-bottom: 3rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.035em;
+    font-weight: 600;
+}
+
+/* Monospace: Code blocks, editor inputs, preformatted text */
+code, pre, pre code, .stCode, textarea[aria-label="Python editor"], .stTextArea textarea, .duck-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace !important;
+}
+
+/* Editor & Textarea styling */
+textarea[aria-label="Python editor"], .stTextArea textarea {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 13.5px !important;
+    border: 1px solid #30363d !important;
+    line-height: 1.55 !important;
+    tab-size: 4 !important;
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+    border-radius: 8px !important;
+}
+
+textarea[aria-label="Python editor"]:focus, .stTextArea textarea:focus {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 1px #58a6ff !important;
+}
+
+/* Code blocks */
+div[data-testid="stCodeBlock"] {
+    background-color: #161b22 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 8px !important;
+}
+
+/* Sleek Cards & Glassmorphism */
+div[data-testid="stChatMessage"] {
+    border: 1px solid #30363d !important;
+    border-radius: 10px !important;
+    background-color: #161b22 !important;
+}
+
+div[data-testid="stExpander"] {
+    border: 1px solid #30363d !important;
+    border-radius: 10px !important;
+    background-color: #161b22 !important;
+}
+
+div[data-testid="stMetric"] {
+    border: 1px solid #30363d !important;
+    border-radius: 10px !important;
+    background-color: #161b22 !important;
+    padding: 12px;
+}
+
+.eyebrow {
+    color: #8b949e;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    font-weight: 700;
+}
+
+.hero-note {
+    color: #8b949e;
+    font-size: 16px;
+    margin-bottom: 20px;
+}
+
+/* Pill Badges & Stage Indicators */
+.duck-badge {
+    padding: 3px 10px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+.badge-predict {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.badge-investigate {
+    background: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+    border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.badge-check {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-reflect {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+    border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.badge-offline {
+    background: rgba(245, 158, 11, 0.12);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* Custom Header Bar */
+.duck-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 18px;
+    border-radius: 10px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    margin-bottom: 24px;
+}
+
+.duck-header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.duck-header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.duck-logo {
+    font-size: 1.25rem;
+}
+
+.duck-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: #f0f6fc;
+    letter-spacing: -0.02em;
+}
+
+.duck-edition {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    letter-spacing: 0.02em;
+}
+
+.duck-team {
+    font-size: 0.8rem;
+    color: #8b949e;
+}
+
+.duck-version {
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #21262d;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
+}
 </style>""", unsafe_allow_html=True)
+
+
+st.set_page_config(page_title="DuckTutor · Think it through", page_icon="🦆", layout="wide")
+inject_custom_styles()
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", str(Path(__file__).parent / "data")))
 
@@ -128,6 +310,19 @@ with st.sidebar:
 
 session = st.session_state.session
 sid = session["id"]
+
+st.markdown("""<div class="duck-header-bar">
+  <div class="duck-header-left">
+    <span class="duck-logo">🦆</span>
+    <span class="duck-title">DuckTutor</span>
+    <span class="duck-edition">Ducktoberfest 2026</span>
+  </div>
+  <div class="duck-header-right">
+    <span class="duck-team">Team NeuralForge</span>
+    <span class="duck-version">v0.2.0</span>
+  </div>
+</div>""", unsafe_allow_html=True)
+
 st.markdown('<div class="eyebrow">DEBUGGING, WITH UNDERSTANDING</div>', unsafe_allow_html=True)
 st.title("Think it through with DuckTutor.")
 st.markdown('<div class="hero-note">Predict what happens. Follow the evidence. Make the correction yours.</div>', unsafe_allow_html=True)
@@ -139,14 +334,35 @@ learn, notebook = st.tabs(["Learning session", "My notebook"])
 with learn:
     st.subheader(exercise.title)
     st.write(exercise.spec)
-    st.caption("01 Predict   →   02 Investigate   →   03 Check your correction   →   04 Reflect")
+
+    cur_stage = session["stage"]
+    p_active = cur_stage == "predict"
+    i_active = cur_stage == "guide" and session.get("attempts", 0) == 0
+    c_active = cur_stage == "guide" and session.get("attempts", 0) > 0
+    r_active = cur_stage == "reflect"
+    p_style = "opacity: 1; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);" if p_active else "opacity: 0.45;"
+    i_style = "opacity: 1; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4);" if i_active else "opacity: 0.45;"
+    c_style = "opacity: 1; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);" if c_active else "opacity: 0.45;"
+    r_style = "opacity: 1; box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);" if r_active else "opacity: 0.45;"
+
+    st.markdown(f"""<div style="display: flex; align-items: center; gap: 8px; margin: 10px 0 20px 0; flex-wrap: wrap;">
+      <span class="duck-badge badge-predict" style="{p_style}">01 Predict</span>
+      <span style="color: #484f58;">→</span>
+      <span class="duck-badge badge-investigate" style="{i_style}">02 Investigate</span>
+      <span style="color: #484f58;">→</span>
+      <span class="duck-badge badge-check" style="{c_style}">03 Check</span>
+      <span style="color: #484f58;">→</span>
+      <span class="duck-badge badge-reflect" style="{r_style}">04 Reflect</span>
+    </div>""", unsafe_allow_html=True)
+
     left, right = st.columns([1.15, 1], gap="large")
     with left:
-        st.markdown("#### Your code")
         if session["stage"] == "predict":
+            st.markdown('#### <span class="duck-badge badge-predict">01 Predict</span> Starter code', unsafe_allow_html=True)
             st.code(exercise.starter, language="python")
             st.caption("Make a prediction first. The editor opens after execution.")
         else:
+            st.markdown('#### <span class="duck-badge badge-check">03 Check</span> Python editor & verification', unsafe_allow_html=True)
             code = st.text_area("Python editor", value=session["code"], height=235, max_chars=20000,
                                 key=f"editor_{sid}", label_visibility="collapsed")
             if sync_code(session, code):
@@ -209,7 +425,7 @@ with learn:
 
     with right:
         if session["stage"] == "predict":
-            st.markdown("#### Before we run it…")
+            st.markdown('#### <span class="duck-badge badge-predict">01 Predict</span> Diagnostic probe', unsafe_allow_html=True)
             st.code(exercise.prediction_code, language="python")
             with st.form(f"prediction_{sid}"):
                 choice = st.radio("What will the final print show?", exercise.choices, index=None)
@@ -230,10 +446,13 @@ with learn:
             if session["runs"] and session["runs"][-1]["status"] != "completed":
                 st.error(session["runs"][-1].get("error", "Execution is unavailable."))
         else:
-            st.markdown("#### Investigate with the duck")
+            st.markdown('#### <span class="duck-badge badge-investigate">02 Investigate</span> Dialogue with the duck', unsafe_allow_html=True)
             for entry in session["messages"][-10:]:
                 with st.chat_message(entry["role"], avatar="🦆" if entry["role"] == "assistant" else None):
-                    st.caption(entry["source"])
+                    if entry.get("source", "").startswith("Exercise hint"):
+                        st.markdown(f'<span class="duck-badge badge-offline">{entry["source"]}</span>', unsafe_allow_html=True)
+                    else:
+                        st.caption(entry["source"])
                     st.text(entry["text"])
             recent_errors = [e for e in session["events"] if e["type"] in {"model_unavailable", "model_response_rejected"}]
             if session["messages"] and session["messages"][-1]["source"].startswith("Exercise hint") and recent_errors:
@@ -278,6 +497,7 @@ with learn:
 
     if session["stage"] == "reflect" and getattr(exercise, "reflection", None):
         refl = exercise.reflection
+        st.markdown('#### <span class="duck-badge badge-reflect">04 Reflect</span> Mental model transfer', unsafe_allow_html=True)
         with st.expander("Transfer Check · Apply what you learned", expanded=session.get("followup_status", "not_attempted") == "not_attempted"):
             st.caption(f"Test your mental model of **{exercise.concept}** on a new example:")
             st.code(refl.transfer_snippet, language="python")
