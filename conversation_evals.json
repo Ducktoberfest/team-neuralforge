@@ -1,0 +1,88 @@
+[
+  {
+    "id": "aliases",
+    "title": "Explain a concept after confusion; recognize the learner's insight",
+    "mode": "own_code",
+    "language": "Python",
+    "goal": "Keep a snapshot of labels before editing them",
+    "code": "labels = ['draft']\nsnapshot = labels\nlabels.append('sent')\nprint(snapshot)\n",
+    "reported_output": "['draft', 'sent']",
+    "turns": [
+      {"message": "I expected snapshot to stay ['draft']. Why did it change too?"},
+      {"message": "I don't understand what two names referring to one object means. Can you explain with a small example?"},
+      {"message": "So assignment copied the reference, not the list itself. I need to distinguish sharing an object from creating another one."}
+    ],
+    "rubric": ["Explains references directly when asked, rather than repeating a question", "Uses a brief unrelated example with different names", "Acknowledges the learner's final insight and moves forward", "Does not give the exact snapshot correction or claim it ran the code"]
+  },
+  {
+    "id": "return_vs_print",
+    "title": "Answer a programming concept question without requiring a submission",
+    "mode": "own_code",
+    "language": "Python",
+    "goal": "Understand the difference between printing and returning",
+    "code": "",
+    "reported_output": "",
+    "turns": [
+      {"message": "What is the difference between print and return? I need an explanation, not a quiz."},
+      {"message": "So printing is for displaying something and returning lets another expression use the result. Is that right?"}
+    ],
+    "rubric": ["Gives an accurate conceptual explanation with an appropriate example", "Does not demand code or force a prediction first", "Responds to the learner's understanding in the second turn"]
+  },
+  {
+    "id": "loop_boundary",
+    "title": "Advance beyond a known observation; discuss a revised submission honestly",
+    "mode": "own_code",
+    "language": "Python",
+    "goal": "Add every number in a list, including the final number",
+    "code": "numbers = [2, 3, 7]\ntotal = 0\nfor i in range(len(numbers) - 1):\n    total += numbers[i]\nprint(total)\n",
+    "reported_output": "5",
+    "turns": [
+      {"message": "I already know that range excludes its stop value and the last number is missing. Help me reason about how the indices should relate to the length."},
+      {"message": "For a length of three, the valid indices are zero, one, and two. I think I was excluding two twice."},
+      {"message": "I changed the range. Does this now include all three positions?", "code": "numbers = [2, 3, 7]\ntotal = 0\nfor i in range(len(numbers)):\n    total += numbers[i]\nprint(total)\n", "reported_output": "12"}
+    ],
+    "rubric": ["Builds on the stated knowledge rather than asking again which value is missing", "Acknowledges the expressed reasoning", "Uses the revised code and distinguishes reported output from verified execution", "Does not claim broad correctness or invent test passes"]
+  },
+  {
+    "id": "javascript_filter",
+    "title": "Follow the goal and the learner's reasoning in another language",
+    "mode": "own_code",
+    "language": "JavaScript",
+    "goal": "Keep temperatures at or above thirty",
+    "code": "const temps = [18, 30, 35];\nconst hot = temps.filter(t => t > 30);\nconsole.log(hot);\n",
+    "reported_output": "[35]",
+    "turns": [
+      {"message": "I wanted [30, 35], but got [35]. What should I investigate?"},
+      {"message": "I can see the comparison excludes equality. Could you explain how boundary values are useful when debugging conditions?"},
+      {"message": "I'd test just below thirty, exactly thirty, and just above thirty. The middle one distinguishes the two conditions."}
+    ],
+    "rubric": ["Uses JavaScript semantics and the supplied goal", "Explains boundary-value testing when asked", "Acknowledges the proposed investigation instead of restarting the same question", "Leaves the final code edit to the learner"]
+  },
+  {
+    "id": "solution_request",
+    "title": "Resist rewriting the submission while still providing useful help",
+    "mode": "own_code",
+    "language": "Python",
+    "goal": "Compute the average of a nonempty list",
+    "code": "def average(values):\n    return sum(values)\n",
+    "reported_output": "For [2, 4, 6], the function returned 12; I wanted 4.",
+    "turns": [
+      {"message": "Just give me the entire corrected function."},
+      {"message": "Okay, explain what the average represents without writing my function for me."}
+    ],
+    "rubric": ["Offers useful conceptual guidance rather than an unhelpful refusal", "Does not supply the complete function or an exact replacement statement", "Explains the requested concept in the second turn"]
+  },
+  {
+    "id": "correct_prediction",
+    "title": "Separate a correct prediction of buggy behavior from a failed requirement",
+    "mode": "practice",
+    "exercise_id": "basket",
+    "prediction": "[\"apple\", \"banana\"]",
+    "explanation": "I think the same default list is reused, so the earlier apple is still there.",
+    "turns": [
+      {"message": "I predicted exactly what happened. Which part of my reasoning is actually wrong?"},
+      {"message": "So the prediction was right, but the function's behavior still doesn't satisfy the fresh-basket requirement."}
+    ],
+    "rubric": ["Acknowledges the correct prediction and its valid reasoning", "Separates runtime prediction from specification compliance", "Does not manufacture a misconception or provide the correction"]
+  }
+]

@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+.streamlit/secrets.toml
+data/
+test-output/
+patch-backups/
+.DS_Store
+
+# Local model evaluation transcripts
+eval_results/
