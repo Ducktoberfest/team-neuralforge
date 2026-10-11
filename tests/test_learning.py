@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from core import (check_correction, guide, list_saved_sessions, load_notebook,
                   load_session, new_session, predict, reveal, save_notebook, sync_code)
-from exercises import BASKET, EXERCISES
+from exercises import BASKET, CLOSURES, COUNTDOWN, EXERCISES
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
 
@@ -44,7 +44,13 @@ class LearningTests(unittest.TestCase):
         self.session = new_session(BASKET)
 
     def test_reviewed_examples_and_solutions_execute(self):
-        expected_initial = {"basket": ["apple", "banana"], "largest": 0, "total": 5}
+        expected_initial = {
+            "basket": ["apple", "banana"],
+            "largest": 0,
+            "total": 5,
+            "closures": [20, 20, 20],
+            "countdown": [3, 2, 1],
+        }
         for exercise in EXERCISES.values():
             with self.subTest(exercise=exercise.id):
                 result = self.runner.run(exercise, exercise.starter, "prediction")
@@ -202,6 +208,25 @@ class LearningTests(unittest.TestCase):
             corrupt_file = Path(directory) / "corrupt.json"
             corrupt_file.write_text("invalid json")
             self.assertIsNone(load_session("corrupt", directory))
+
+    def test_new_exercises_anti_spoiler_and_runner_validation(self):
+        closures_session = new_session(CLOSURES)
+        closures_ctx = context_for(closures_session, CLOSURES, "test", ["ask_question"], [])
+        base = {"action": "ask_question", "message": "What is the value of i?", "case_id": None, "evidence_ids": []}
+        for spoiler in ["Use i=i to fix the closure", "Bind as a default parameter"]:
+            with self.subTest(spoiler=spoiler), self.assertRaises(ModelError):
+                parse_decision(json.dumps({**base, "message": spoiler}), closures_ctx)
+
+        countdown_session = new_session(COUNTDOWN)
+        countdown_ctx = context_for(countdown_session, COUNTDOWN, "test", ["ask_question"], [])
+        for spoiler in ["Check if n < 0 to return empty list", "Use n == 0 to stop"]:
+            with self.subTest(spoiler=spoiler), self.assertRaises(ModelError):
+                parse_decision(json.dumps({**base, "message": spoiler}), countdown_ctx)
+
+        valid_closures = parse_decision(json.dumps(base), closures_ctx)
+        self.assertEqual(valid_closures["message"], "What is the value of i?")
+        valid_countdown = parse_decision(json.dumps(base), countdown_ctx)
+        self.assertEqual(valid_countdown["message"], "What is the value of i?")
 
 
 if __name__ == "__main__":

@@ -149,7 +149,8 @@ def parse_decision(raw, context):
     forbidden = [r"```", r"\bdef\s+\w+", r"\breturn\s+\w+", r"\bitems\s+is\s+None\b",
                  r"\bif\s+not\s+numbers", r"\b(use|replace|change|remove|set)\b.{0,50}\b(None|minus one|numbers\[0\])",
                  r"<[^>]+>", r"https?://", r"\b(proven correct|mastered|all requirements (are )?satisfied)\b"]
-    if any(re.search(pattern, message, re.I) for pattern in forbidden):
+    all_forbidden = forbidden + list(context.get("forbidden", ()))
+    if any(re.search(pattern, message, re.I) for pattern in all_forbidden):
         raise InvalidResponse("The generated response crossed a hint or evidence boundary.")
     return item
 
@@ -177,4 +178,5 @@ def context_for(session, exercise, event, actions, cases):
             "checked_suite_passed": session.get("verified_hash") == code_hash,
             "solution_viewed": session.get("solution_viewed", False),
             "allowed_actions": actions, "allowed_case_ids": cases,
-            "case_catalog": [{"id": c.id, "purpose": c.purpose} for c in exercise.cases if c.id in cases]}
+            "case_catalog": [{"id": c.id, "purpose": c.purpose} for c in exercise.cases if c.id in cases],
+            "forbidden": getattr(exercise, "forbidden", ())}

@@ -108,6 +108,14 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
   - *Bug:* Off-by-one boundary error `for i in range(len(numbers) - 1)`.
   - *Trap:* Trailing zero can mask the omission `[2, 3, 0]`.
   - *Suite:* 5 test cases covering ordinary integers, single element, empty list, negative values, and ending zero.
+- [x] **Exercise 4: `closures` ("The functions that forgot their numbers")**
+  - *Bug:* Late-binding loop closures `[lambda x: x * i for i in range(n)]`.
+  - *Trap:* All closures evaluate `i` at call time (retaining final loop value `n - 1`), returning identical multipliers.
+  - *Suite:* 5 test cases covering multiple functions, single function, zero/negative inputs, and repeated calls with varied arguments.
+- [x] **Exercise 5: `countdown` ("The countdown that stops too soon")**
+  - *Bug:* Base case boundary omission `if n <= 1: return [1]`.
+  - *Trap:* Omits 0 from countdown descent and returns `[1]` for zero and negative inputs.
+  - *Suite:* 5 test cases covering normal countdown, zero boundary, single element (1), negative inputs, and large recursion chain.
 
 ### 3.5 Persistence, Hydration & Privacy
 - [x] **Atomic JSON Notebooks:** Writes to a tempfile in `data/`, flushes, fsyncs, and replaces atomically.
@@ -117,7 +125,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Session Export:** Downloadable JSON report button in the UI.
 
 ### 3.6 Automated Testing
-- [x] **Unit & Integration Suite:** 26 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, and Streamlit UI flow.
+- [x] **Unit & Integration Suite:** 27 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, exercise-specific anti-spoiler verification, and Streamlit UI flow.
 
 ---
 
@@ -128,9 +136,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
    - Live multi-turn sessions with Google AI Studio API must be verified for JSON stability and quota limits before presentations.
 2. **Docker Execution Unexercised:**
    - The Docker runner code path is implemented and bounded, but has not been run in environments lacking a Docker daemon.
-3. **Limited Exercise Library:**
-   - Only 3 exercises currently exist (planned expansion for closures and recursion in Phase 4).
-4. **Code Editor Capabilities:**
+3. **Code Editor Capabilities:**
    - Currently uses Streamlit's native `st.text_area` without syntax highlighting, line numbers, or code autocompletion.
 
 ---
