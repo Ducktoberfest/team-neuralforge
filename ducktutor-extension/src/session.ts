@@ -42,7 +42,7 @@ export function createExerciseSession(exercise: Exercise): Session {
   };
 }
 
-export function createCustomCodeSession(code: string, fileName = 'untitled.py'): Session {
+export function createCustomCodeSession(code: string, fileName = 'untitled.py', language = 'python'): Session {
   const now = new Date().toISOString();
   return {
     id: crypto.randomBytes(8).toString('hex'),
@@ -63,7 +63,7 @@ export function createCustomCodeSession(code: string, fileName = 'untitled.py'):
     messages: [
       {
         role: 'assistant',
-        text: `Quack! I am your Socratic Rubber Duck powered by Gemma 4. Run your code with "▶️ Run & Ask Duck" or ask me about any bug or error in "${fileName}". I will guide you to the root cause without spoiling the code!`,
+        text: `Quack! I am your Socratic Rubber Duck powered by Gemma 4. Run your code with "▶️ Run & Ask Duck" or click "🔍 Socratic Review" to analyze "${fileName}". What part of this code would you like to examine?`,
         source: 'DuckTutor',
         timestamp: now,
       },
@@ -78,6 +78,7 @@ export function createCustomCodeSession(code: string, fileName = 'untitled.py'):
     modelCalls: 0,
     transferPrediction: null,
     transferCorrect: null,
+    language,
   };
 }
 

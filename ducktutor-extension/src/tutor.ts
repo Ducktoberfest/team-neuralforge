@@ -314,10 +314,12 @@ export class TutorService {
     code: string,
     errorOrOutput: string,
     messages: SessionMessage[],
-    userQuestion: string
+    userQuestion: string,
+    language = 'python'
   ): Promise<string> {
-    const promptContext = `The programmer is writing this Python code:
-\`\`\`python
+    const langDisplay = (language || 'python').toUpperCase();
+    const promptContext = `The programmer is writing this ${langDisplay} code:
+\`\`\`${language}
 ${code || '(No code loaded yet)'}
 \`\`\`
 
@@ -330,7 +332,7 @@ User question / thought:
 "${userQuestion}"`;
 
     if (!this.apiKey && this.provider === 'google') {
-      return this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion);
+      return this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion, language);
     }
 
     try {
@@ -357,11 +359,13 @@ User question / thought:
             {
               text: `You are DuckTutor, a patient, encouraging Rubber Duck debugging assistant.
 Your goal is to help the programmer discover the bug in THEIR code by asking focused Socratic questions.
+The programmer is coding in ${langDisplay}.
 RULES:
 1. NEVER write corrected code, replacement lines, or direct solutions.
-2. If there is an exception or traceback (e.g. IndexError, TypeError, ZeroDivisionError, KeyError), focus on the exact line and explain what that error type means conceptually, then ask what value caused it.
+2. If there is an exception or traceback, focus on the exact line and explain what that error type means conceptually in ${langDisplay}, then ask what value or condition caused it.
 3. If the code printed output, ask how that output compares with what they intended.
-4. Keep answers friendly, short, and focused (usually under 60 words). Always end with a clear question to think about.`,
+4. If there are no runtime errors, analyze potential boundary conditions, off-by-one loops, null references, or unhandled branches and ask a thought-provoking question.
+5. Keep answers friendly, short, and focused (usually under 60 words). Always end with a clear question to think about.`,
             },
           ],
         },
@@ -390,33 +394,44 @@ RULES:
       const candidate = data?.candidates?.[0];
       const parts = candidate?.content?.parts || [];
       const text = parts.filter((p: any) => !p.thought).map((p: any) => p.text).join('').trim();
-      return text || this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion);
+      return text || this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion, language);
     } catch {
-      return this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion);
+      return this.generateOfflineSocraticProbe(code, errorOrOutput, userQuestion, language);
     }
   }
 
-  public generateOfflineSocraticProbe(code: string, errorOrOutput: string, userQuestion: string): string {
+  public generateOfflineSocraticProbe(code: string, errorOrOutput: string, userQuestion: string, language = 'python'): string {
     const err = (errorOrOutput || '').toLowerCase();
+    const lang = (language || 'python').toLowerCase();
 
-    if (err.includes('zerodivisionerror')) {
-      return "*Quack!* A ZeroDivisionError happened. In Python, dividing by zero is undefined. What denominator was calculated right before this division took place?";
+    // JavaScript / TypeScript errors
+    if (err.includes('cannot read propert') || err.includes('cannot read properties') || err.includes('undefined') || err.includes('null')) {
+      return "*Quack!* You are trying to access a property on an object that is `null` or `undefined`. What step was supposed to initialize that variable before this line?";
     }
-    if (err.includes('indexerror')) {
-      return "*Quack!* An IndexError means Python tried to read an index beyond the list boundaries. What is the length of your list, and what index did your loop or code reach?";
+    if (err.includes('is not a function')) {
+      return "*Quack!* JavaScript is telling you that this value cannot be called as a function. What type is that variable holding at this point during execution?";
+    }
+
+    // Python errors
+    if (err.includes('zerodivisionerror')) {
+      return "*Quack!* A ZeroDivisionError happened. Dividing by zero is undefined. What denominator was calculated right before this division took place?";
+    }
+    if (err.includes('indexerror') || err.includes('out of range') || err.includes('indexoutofbounds')) {
+      return "*Quack!* An index boundary error occurred. What is the length of your collection, and what index value was passed to it?";
     }
     if (err.includes('keyerror')) {
-      return "*Quack!* A KeyError means a dictionary lookup failed because the key doesn't exist. Check what keys are currently stored in your dictionary before accessing that item!";
+      return "*Quack!* A KeyError means a dictionary lookup failed because the key doesn't exist. Check what keys are currently stored before accessing that item!";
     }
     if (err.includes('typeerror')) {
       return "*Quack!* A TypeError occurred because an operation was attempted on incompatible types. Check the types of your variables on that line: what types did you expect?";
     }
     if (err.includes('syntaxerror')) {
-      return "*Quack!* A SyntaxError indicates Python couldn't parse the code. Check the line right before the error marker for missing colons `:`, parentheses `)`, or quotes!";
+      return "*Quack!* A SyntaxError indicates the code could not be parsed. Check the line right before the error marker for missing punctuation or mismatched brackets!";
     }
-    if (err.includes('nameerror')) {
-      return "*Quack!* A NameError happened because Python doesn't recognize that variable name. Is it misspelled, or was it used before being defined?";
+    if (err.includes('segmentation fault') || err.includes('segfault')) {
+      return "*Quack!* A segmentation fault means your program tried to access restricted memory. Did a pointer point to `nullptr`, or did an array index exceed bounds?";
     }
-    return "*Quack!* I am examining your code. What did you expect your code to do, and where does the observed behavior start deviating from your plan?";
+
+    return `*Quack!* I am examining your ${lang.toUpperCase()} code. What was your original expectation for this logic, and which line handles the key state transition?`;
   }
 }
