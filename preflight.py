@@ -5,13 +5,14 @@ import json
 import os
 import sys
 
-from core import new_session
+from core import load_env_file, new_session
 from exercises import BASKET
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
 
 
 def main():
+    load_env_file()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trusted-local", action="store_true", help="Run the bundled reviewed example in a local child process (not a sandbox).")
     parser.add_argument("--provider", choices=["google", "ollama"], default="google")

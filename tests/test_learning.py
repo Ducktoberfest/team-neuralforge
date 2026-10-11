@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from core import (check_correction, guide, list_saved_sessions, load_notebook,
+from core import (check_correction, guide, list_saved_sessions, load_env_file, load_notebook,
                   load_session, new_session, predict, record_transfer, reveal, save_notebook, sync_code)
 from exercises import (BASKET, CLOSURES, COUNTDOWN, EXERCISES, SCOPE_LEAK,
                        SHALLOW_COPY, TransferReflection)
@@ -379,6 +379,53 @@ class LearningTests(unittest.TestCase):
             self.assertEqual(loaded["followup_status"], "correct_on_prepared_question")
             self.assertEqual(loaded["reflection_response"]["prediction"], correct_choice)
 
+    def test_load_env_file_parser_behavior(self):
+        with tempfile.TemporaryDirectory() as directory:
+            env_path = Path(directory) / ".env"
+            env_path.write_text(
+                "# Leading comment\n"
+                "\n"
+                "SAMPLE_PLAIN_KEY=hello_world\n"
+                "SAMPLE_DOUBLE_QUOTED=\"value with spaces and = sign\"\n"
+                "SAMPLE_SINGLE_QUOTED='single_value'\n"
+                "# Commented out key\n"
+                "# INACTIVE_KEY=unused\n"
+                "EXISTING_KEY=new_override_value\n"
+            )
+            with patch.dict(os.environ, {"EXISTING_KEY": "prior_system_value"}, clear=False):
+                loaded = load_env_file(env_path)
+                self.assertEqual(loaded["SAMPLE_PLAIN_KEY"], "hello_world")
+                self.assertEqual(os.environ["SAMPLE_PLAIN_KEY"], "hello_world")
+                self.assertEqual(loaded["SAMPLE_DOUBLE_QUOTED"], "value with spaces and = sign")
+                self.assertEqual(loaded["SAMPLE_SINGLE_QUOTED"], "single_value")
+                self.assertNotIn("INACTIVE_KEY", loaded)
+                # Existing environment variable is preserved when override=False
+                self.assertEqual(loaded["EXISTING_KEY"], "prior_system_value")
+                self.assertEqual(os.environ["EXISTING_KEY"], "prior_system_value")
+
+                # Test override=True
+                loaded_override = load_env_file(env_path, override=True)
+                self.assertEqual(loaded_override["EXISTING_KEY"], "new_override_value")
+                self.assertEqual(os.environ["EXISTING_KEY"], "new_override_value")
+
+    def test_app_boots_cleanly_with_and_without_api_key(self):
+        from streamlit.testing.v1 import AppTest
+        app_path = str(Path(__file__).parents[1] / "app.py")
+
+        # 1. Boot without API key
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}):
+            app_without = AppTest.from_file(app_path, default_timeout=15).run()
+            self.assertFalse(app_without.exception)
+            self.assertEqual(app_without.text_input(key="api_key").value, "")
+
+        # 2. Boot with API key
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "test-env-key-999", "GOOGLE_API_KEY": ""}):
+            app_with = AppTest.from_file(app_path, default_timeout=15).run()
+            self.assertFalse(app_with.exception)
+            self.assertEqual(app_with.text_input(key="api_key").value, "test-env-key-999")
+            self.assertTrue(any("Loaded from local environment" in c.value for c in app_with.caption))
+
 
 if __name__ == "__main__":
     unittest.main()
+

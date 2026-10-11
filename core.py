@@ -10,6 +10,45 @@ from runner import revision
 from tutor import InvalidResponse, ModelError, context_for, parse_decision
 
 
+def load_env_file(path=None, override=False):
+    """Load key-value pairs from a .env file into os.environ.
+
+    Standard-library only: ignores comments (#) and empty lines, strips quotes.
+    Does not overwrite existing non-empty system environment variables unless missing or override=True.
+    Returns the dictionary of loaded variables.
+    """
+    if path is None:
+        path = Path(__file__).resolve().parent / ".env"
+    else:
+        path = Path(path)
+    loaded = {}
+    if not path.is_file():
+        return loaded
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError:
+        return loaded
+    for line in content.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip()
+        if len(val) >= 2 and ((val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'"))):
+            val = val[1:-1]
+        if not key:
+            continue
+        if override or key not in os.environ:
+            os.environ[key] = val
+            loaded[key] = val
+        else:
+            loaded[key] = os.environ[key]
+    return loaded
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 

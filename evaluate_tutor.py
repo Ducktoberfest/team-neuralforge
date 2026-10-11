@@ -5,7 +5,7 @@ import json
 import os
 from pathlib import Path
 
-from core import guide, new_session, predict, update_problem
+from core import guide, load_env_file, new_session, predict, update_problem
 from exercises import EXERCISES
 from runner import Runner
 from tutor import Gemma
@@ -51,6 +51,7 @@ def run_case(case, model):
 
 
 def main():
+    load_env_file()
     parser = argparse.ArgumentParser(description=__doc__)
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--case", default=None, help="Case ID; default is aliases")

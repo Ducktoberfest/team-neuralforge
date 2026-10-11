@@ -6,7 +6,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from core import (check_correction, guide, list_saved_sessions, load_notebook,
+from core import (check_correction, guide, list_saved_sessions, load_env_file, load_notebook,
                   load_session, new_session, predict, record_transfer, reveal, save_notebook, sync_code)
 from exercises import EXERCISES
 from workspace_ui import (hydrate_widgets, render_history, render_own_code, session_title,
@@ -14,6 +14,8 @@ from workspace_ui import (hydrate_widgets, render_history, render_own_code, sess
 from runner import Runner
 from sound_effects import queue_sound, render_audio_sidebar, render_pending_sound
 from tutor import Gemma, ModelError, context_for, parse_decision
+
+load_env_file()
 
 def inject_custom_styles():
     # Native Streamlit theming owns widget colors, focus rings, menus and alerts.
@@ -171,8 +173,11 @@ with st.sidebar:
                 key="gemma_model_select",
                 help="26B is the demo default. 31B remains available, with a longer request timeout."
             )
-            key = st.text_input("Google AI Studio API key", type="password", key="api_key",
+            env_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY") or ""
+            key = st.text_input("Google AI Studio API key", value=env_key, type="password", key="api_key",
                                 help="Optional when GEMINI_API_KEY is set. Kept in this browser session, never in the notebook.")
+            if env_key:
+                st.caption("✓ Loaded from local environment (.env)")
             endpoint = "http://127.0.0.1:11434"
             st.caption("Code and conversation context are sent to Google for inference.")
         else:
