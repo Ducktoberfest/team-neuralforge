@@ -38,6 +38,8 @@ with st.sidebar:
     st.caption("A small question. A better understanding.")
     if "_pending_exercise" in st.session_state:
         st.session_state["exercise_select"] = st.session_state.pop("_pending_exercise")
+    if "_pending_model" in st.session_state:
+        st.session_state["gemma_model_select"] = st.session_state.pop("_pending_model")
     chosen = st.selectbox("Exercise", list(EXERCISES), format_func=lambda k: EXERCISES[k].title,
                           key="exercise_select")
     exercise = EXERCISES[chosen]
@@ -53,8 +55,18 @@ with st.sidebar:
         provider = st.selectbox("Model provider", ["google", "ollama"],
                                 format_func=lambda x: "Hosted Gemma" if x == "google" else "Local Ollama")
         if provider == "google":
-            model_name = st.selectbox("Gemma model", ["gemma-4-26b-a4b-it", "gemma-4-31b-it"],
-                                      index=0, help="gemma-4-26b-a4b-it is the recommended default model.")
+            MODEL_LABELS = {
+                "gemma-4-26b-a4b-it": "gemma-4-26b-a4b-it (Recommended · Fast & Stable)",
+                "gemma-4-31b-it": "gemma-4-31b-it (Experimental · Upstream 500 Issues)",
+            }
+            model_name = st.selectbox(
+                "Gemma model",
+                ["gemma-4-26b-a4b-it", "gemma-4-31b-it"],
+                index=0,
+                format_func=lambda m: MODEL_LABELS.get(m, m),
+                key="gemma_model_select",
+                help="gemma-4-26b-a4b-it is the recommended default model."
+            )
             key = st.text_input("Google AI Studio API key", type="password", key="api_key",
                                 help="Optional when GEMINI_API_KEY is set. Kept in this browser session, never in the notebook.")
             endpoint = "http://127.0.0.1:11434"
@@ -74,7 +86,14 @@ with st.sidebar:
                 st.success(f"Live response · {latency / 1000:.1f}s")
                 st.text(response["message"])
             except ModelError as exc:
-                st.error(str(exc))
+                err_msg = str(exc)
+                if ("31b" in str(model.model).lower() or "31b" in str(model_name).lower()) and ("500" in err_msg or "503" in err_msg):
+                    st.warning("Gemma 31B encountered an upstream server error (HTTP 500). Switch to Gemma 26B for stable responses.")
+                    if st.button("Switch to Gemma 26B & Retry", key="sidebar_switch_26b"):
+                        st.session_state["_pending_model"] = "gemma-4-26b-a4b-it"
+                        st.rerun()
+                else:
+                    st.error(err_msg)
     st.divider()
     mode_label = st.selectbox("Python execution", ["Trusted local demo", "Docker container"])
     trusted = False
@@ -218,7 +237,20 @@ with learn:
                     st.text(entry["text"])
             recent_errors = [e for e in session["events"] if e["type"] in {"model_unavailable", "model_response_rejected"}]
             if session["messages"] and session["messages"][-1]["source"].startswith("Exercise hint") and recent_errors:
-                st.warning(recent_errors[-1]["error"])
+                last_err = recent_errors[-1]["error"]
+                is_31b = ("31b" in str(model.model).lower() or "31b" in str(model_name).lower() or "31b" in last_err.lower())
+                is_server_err = ("500" in last_err or "503" in last_err or "internal error" in last_err.lower())
+                if is_31b and is_server_err:
+                    st.warning("Gemma 31B encountered an upstream server error (HTTP 500). Switch to Gemma 26B for stable responses.")
+                    if st.button("Switch to Gemma 26B & Retry", key=f"switch_26b_{sid}", type="primary", use_container_width=True):
+                        st.session_state["_pending_model"] = "gemma-4-26b-a4b-it"
+                        model_26b = Gemma(key=key, model="gemma-4-26b-a4b-it", provider=provider, base_url=endpoint)
+                        with st.spinner("Retrying with Gemma 26B…"):
+                            guide(session, exercise, runner, model_26b)
+                            persist(session)
+                        st.rerun()
+                else:
+                    st.warning(last_err)
             with st.form(f"reply_{sid}", clear_on_submit=True):
                 reply = st.text_area("Your reasoning or question", max_chars=1500, height=90)
                 send = st.form_submit_button("Discuss with the duck", disabled=not can_run,

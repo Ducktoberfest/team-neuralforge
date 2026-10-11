@@ -152,6 +152,14 @@ class ResponseTests(unittest.TestCase):
             self.assertEqual(self.session["messages"][-1]["source"], "Exercise hint · live Gemma unavailable")
             self.assertEqual(self.session["model_unavailable_events"], 1)
 
+    def test_display_label_normalization(self):
+        m26 = Gemma(model="gemma-4-26b-a4b-it (Recommended · Fast & Stable)")
+        self.assertEqual(m26.model, "gemma-4-26b-a4b-it")
+        m31 = Gemma(model="gemma-4-31b-it (Experimental · Upstream 500 Issues)")
+        self.assertEqual(m31.model, "gemma-4-31b-it")
+        m_default = Gemma()
+        self.assertEqual(m_default.model, "gemma-4-26b-a4b-it")
+
 
 if __name__ == "__main__":
     unittest.main()

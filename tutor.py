@@ -42,10 +42,27 @@ class InvalidResponse(ModelError):
 
 
 class Gemma:
+    GOOGLE_MODELS = {
+        "gemma-4-26b-a4b-it": "gemma-4-26b-a4b-it",
+        "gemma-4-31b-it": "gemma-4-31b-it",
+        "gemma-4-26b-a4b-it (Recommended · Fast & Stable)": "gemma-4-26b-a4b-it",
+        "gemma-4-31b-it (Experimental · Upstream 500 Issues)": "gemma-4-31b-it",
+    }
+
     def __init__(self, key=None, model="gemma-4-26b-a4b-it", provider="google",
                  base_url="http://127.0.0.1:11434", timeout=20):
         self.key = key or os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-        self.model = model
+        if provider == "google":
+            if model in self.GOOGLE_MODELS:
+                self.model = self.GOOGLE_MODELS[model]
+            elif "gemma-4-26b" in model:
+                self.model = "gemma-4-26b-a4b-it"
+            elif "gemma-4-31b" in model:
+                self.model = "gemma-4-31b-it"
+            else:
+                self.model = model
+        else:
+            self.model = model
         self.provider = provider
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout

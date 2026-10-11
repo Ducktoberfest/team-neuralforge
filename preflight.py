@@ -35,6 +35,8 @@ def main():
                    initial_observation=observed["actual"], prediction_matches_execution=False,
                    runs=[observed])
     context = context_for(session, BASKET, "prediction_observed", ["ask_question"], [])
+    if args.provider == "google" and "31b" in args.model.lower():
+        print("Note: Google AI Studio currently experiences intermittent HTTP 500 errors on gemma-4-31b-it. If the request fails, use gemma-4-26b-a4b-it.")
     model = Gemma(key=key, model=args.model, provider=args.provider, base_url=args.ollama_url)
     try:
         raw, elapsed = model.decide(context)

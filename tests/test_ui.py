@@ -134,6 +134,56 @@ class InterfaceTests(unittest.TestCase):
                 self.assertEqual(app.session_state["session"]["transfer_prediction"], "[1, 2]")
                 self.assertTrue(any("Spot on!" in item.value for item in app.success))
 
+    def test_31b_http_500_auto_recovery_ui(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"DATA_DIR": directory}):
+            with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}):
+                saved = {
+                    "schema_version": 1,
+                    "id": "errsession789",
+                    "exercise_id": "basket",
+                    "exercise_version": 1,
+                    "concept": "Shared mutable state",
+                    "started_at": "2026-10-11T00:00:00Z",
+                    "updated_at": "2026-10-11T00:05:00Z",
+                    "stage": "guide",
+                    "code": BASKET.starter,
+                    "code_hash": "starterhash",
+                    "verified_hash": None,
+                    "prediction": '["banana"]',
+                    "confidence": 3,
+                    "explanation": "test reason",
+                    "initial_observation": ["apple", "banana"],
+                    "prediction_matches_execution": False,
+                    "messages": [{"role": "assistant", "text": "Exercise hint", "source": "Exercise hint · live Gemma unavailable"}],
+                    "runs": [],
+                    "events": [{"type": "model_unavailable", "error": "HTTP 500: Model service internal error. If using gemma-4-31b-it, switch to gemma-4-26b-a4b-it."}],
+                    "attempts": 0,
+                    "hint_level": 0,
+                    "hint_count": 0,
+                    "solution_viewed": False,
+                    "outcome": "in_progress",
+                    "model_calls": 0,
+                    "model_unavailable_events": 1,
+                    "followup_status": "not_attempted",
+                }
+                (Path(directory) / "errsession789.json").write_text(json.dumps(saved))
+                app = AppTest.from_file(str(Path(__file__).parents[1] / "app.py"), default_timeout=15).run()
+                self.assertFalse(app.exception)
+                app.selectbox(key="gemma_model_select").set_value("gemma-4-31b-it").run()
+                self.assertFalse(app.exception)
+                app.button(key="load_session_btn").click().run()
+                self.assertFalse(app.exception)
+                self.assertEqual(app.session_state["session"]["stage"], "guide")
+
+                # Verify actionable warning is rendered
+                self.assertTrue(any("Gemma 31B encountered an upstream server error (HTTP 500)" in item.value for item in app.warning))
+
+                # Verify recovery button is present and click it
+                switch_btn = next(b for b in app.button if "Switch to Gemma 26B" in b.label)
+                switch_btn.click().run()
+                self.assertFalse(app.exception)
+                self.assertEqual(app.session_state["gemma_model_select"], "gemma-4-26b-a4b-it")
+
 
 if __name__ == "__main__":
     unittest.main()
