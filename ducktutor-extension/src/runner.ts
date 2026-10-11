@@ -204,8 +204,14 @@ export class PythonRunner {
         stderr += data.toString('utf-8');
       });
 
-      child.on('error', (err) => {
+      child.on('error', (err: any) => {
         clearTimeout(timer);
+        if (err && err.code === 'ENOENT' && this.pythonPath === 'python') {
+          // Automatic macOS / Linux fallback: if 'python' does not exist, try 'python3'
+          this.pythonPath = 'python3';
+          this.executeHarness(payload, caseItem, codeHash, runId, startTime).then(resolve);
+          return;
+        }
         resolve({
           id: runId,
           caseId: caseItem.id,
