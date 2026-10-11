@@ -125,6 +125,7 @@ If the model fails or is offline, real execution continues and guidance is visib
 - Anti-spoiler regex verification with exercise-specific forbidden patterns across all 7 exercises.
 - Automatic local notebook upserts, historical evidence timeline, and JSON export.
 - **Interactive transfer checks:** Stage 4 (Reflect) diagnostic prediction checks across all 7 exercises, testing mental model transfer on novel code snippets before concluding the session.
+- **Offline synthesized sound effects:** Pure-Python WAV audio synthesizer (0 external dependencies) with authentic rubber duck quacks, squeaks, and celebratory fanfare on predictions, hints, and verified solutions, with sidebar toggle and a "Squeeze the Duck" button.
 - Execution event panel showing exact selected actions and child process outputs.
 
 The exercise bank gives the agent safe, interpretable action choices. It does not script the
@@ -159,7 +160,7 @@ state transitions, hash invalidation, notebook upserts, session hydration, timeo
 secret-free child environments, context window pruning, HTTP 500/timeout error recovery,
 invalid model actions, and the interactive Streamlit UI flow.
 
-Recorded validation: **35 automated tests passed for 0.2.3 on Python 3.12.14 (Linux) with Streamlit 1.65.0**. The updated interface still needs a visual check on the demonstration Mac.
+Recorded validation: **41 automated tests passed on Python 3.14 (macOS) with Streamlit**. The updated interface still needs a visual check on the demonstration Mac.
 See `VALIDATION.md` for tested boundaries. See `DEMO.md` for a four-minute walkthrough.
 
 ## UI and reliability updates (0.2.1–0.2.3)
