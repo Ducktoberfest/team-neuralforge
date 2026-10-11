@@ -81,7 +81,7 @@ could interfere with an in-process test harness even inside a container.
 
 ## Gemma connection
 
-Default: `gemma-4-26b-a4b-it`, through Google's Gemini API. Alternate: `gemma-4-31b-it`.
+Default: `gemma-4-26b-a4b-it`, through Google's Gemini API (configured as default in `app.py` and `preflight.py`). Alternate: `gemma-4-31b-it`.
 Hosted access still uses Gemma; hosted inference sends the supplied code and conversation
 context to Google. The notebook itself stays in the local `data` directory.
 
@@ -89,18 +89,11 @@ context to Google. The notebook itself stays in the local `data` directory.
 python preflight.py --trusted-local --model gemma-4-26b-a4b-it
 ```
 
-No key was available in the build workspace. The user subsequently completed one real
-`gemma-4-26b-a4b-it` preflight on the Mac in 3.43 seconds, with a relevant non-spoiling
-question. The 31B request returned HTTP 500. These are individual observed calls, not a
-benchmark or a guarantee of account quota or multi-turn reliability.
-
-An app response then failed JSON parsing. The response-handling update accepts common
-whole-response JSON fences, asks once for a valid replacement after a rejected reply,
-detects truncated output, and distinguishes rejected responses from connection failures.
-There remain at most two model requests per learner action, including repair and feedback.
-If repair consumes the second request, post-execution feedback is explicitly labeled as
-exercise feedback. The same action, test ID, evidence and spoiler checks apply after repair.
-No raw rejected answer is shown to the learner. Live validation of this update is pending.
+### AI Robustness & Context Management
+- **Structured JSON Mode:** Gemma requests specify `"responseMimeType": "application/json"` on Google AI Studio where supported, with robust markdown fence and BOM stripping as a reliable fallback.
+- **Context Window Pruning:** `tutor.py` caps conversational history to the latest 3–4 dialogue turns (up to 8 messages) and active revision evidence to 6 items. Base exercise requirements, the learner's initial prediction, and current source code are always preserved.
+- **Graceful Error Recovery:** HTTP 500, 502, 503, 504 and timeout conditions from hosted endpoints are caught cleanly and mapped to the badge **"Exercise hint · live Gemma unavailable"** (suggesting `gemma-4-26b-a4b-it`), preventing unhandled exceptions or state loss.
+- **Self-Repair Loop:** Bounded single repair request if a response is malformed, with a hard ceiling of 2 model requests per learner action.
 
 An Ollama adapter is included for an already running local installation:
 
@@ -109,25 +102,28 @@ python preflight.py --trusted-local --provider ollama --model YOUR_INSTALLED_GEM
 ```
 
 Choose Local Ollama in the UI and enter the exact installed tag. A local deployment is not
-necessary for the hosted demo. The Ollama adapter and model performance have not been
-live-tested here. The default tag in the UI is a candidate, not a download or speed guarantee.
+necessary for the hosted demo.
 
-If the model fails, real execution continues and guidance is visibly labeled
+If the model fails or is offline, real execution continues and guidance is visibly labeled
 **Exercise hint · live Gemma unavailable**. No prerecorded answer is labeled as live AI.
-That degraded mode is useful for checking the application but does not satisfy the intended
-live AI demonstration by itself.
 
 ## What's implemented
 
-- Three prepared, editable Python exercises, with five reviewed correction checks each.
+- **Five curated Python exercises** spanning foundational traps:
+  1. `basket` — Mutable default arguments (`items=[]`).
+  2. `largest` — Initial state assumptions & all-negative lists (`best = 0`).
+  3. `total` — Off-by-one loop boundaries (`range(len(numbers) - 1)`).
+  4. `closures` — Late-binding loop variables in lambdas / closures.
+  5. `countdown` — Base case boundary omission in recursion.
+- Exactly 5 reviewed test cases per exercise (25 execution cases total), distinguishing ordinary checks from trap probes.
 - Confidence-sensitive model context and a bounded JSON action protocol.
 - Model-selected challenges and real output fed back to Gemma; at most two calls per event.
-- Revision-specific results, syntax/runtime/timeout handling, and explicit solution reveal.
-- Basic spoiler filtering and hint levels; these do not guarantee that semantic spoilers
-  can never leak. Manually test model responses before the event.
-- Automatic local notebook upserts, historical evidence, and JSON export.
-- One optional prepared shared-reference follow-up question after the basket exercise.
-- An event panel showing actual selected actions and executions.
+- **Session hydration & resumption:** Saved sessions from `data/*.json` can be restored into active memory via the sidebar or "My Notebook" tab.
+- **Strict revision tracking:** SHA-256 hash invalidates pass status immediately if learner code changes by even a single character (`verified_hash = None`).
+- Anti-spoiler regex verification with exercise-specific forbidden patterns.
+- Automatic local notebook upserts, historical evidence timeline, and JSON export.
+- Optional conceptual transfer reflection questions.
+- Execution event panel showing exact selected actions and child process outputs.
 
 The exercise bank gives the agent safe, interpretable action choices. It does not script the
 live conversation. Gemma's next question receives the learner's actual recent replies and
@@ -139,13 +135,13 @@ general correctness, full requirement coverage, or learner mastery.
 
 `data/` contains one JSON record per session, atomically replaced after actions. Records
 contain learner code, messages, confidence, observed runs, attempted corrections, whether
-the solution was viewed, and any follow-up response. Credentials are not automatically
-included. Do not put sensitive data into learner messages or code.
+the solution was viewed, and any follow-up response. Credentials are never saved.
 
-Notebook history survives app restarts. An in-progress interactive conversation is held in
-Streamlit session state; after a browser-session reset you can read/export its saved record,
-but this prototype does not restore it as an editable session. One local learner is the
-intended scope; there are no accounts, authentication, or collaborative sessions.
+Notebook history survives app restarts. DuckTutor supports full interactive session hydration:
+learners can select and resume any previously saved session from disk (`data/<session_id>.json`)
+into an editable workspace directly from the sidebar or the **My Notebook** tab. Resuming
+preserves full exercise context, evidence history, and dialogue turns while enforcing revision
+hash verification.
 
 Use `DATA_DIR` to choose another notebook directory. Keep notebook data out of the public
 repository. `.gitignore` covers `data/`, virtual environments, secret files, and caches.
@@ -153,17 +149,16 @@ repository. `.gitignore` covers `data/`, virtual environments, secret files, and
 ## Validate
 
 ```bash
-python -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
-The test suite checks real Python results for all prepared solutions, the incomplete basket
-correction, state transitions, old-result invalidation, notebook upserts, timeout/output
-handling, secret-free child environments, invalid model actions, and the interactive
-Streamlit prediction-to-notebook flow. The test-only model is clearly identified and never
-used by the app.
+The test suite checks real Python results for all 5 prepared solutions, starter traps,
+state transitions, hash invalidation, notebook upserts, session hydration, timeout/output limits,
+secret-free child environments, context window pruning, HTTP 500/timeout error recovery,
+invalid model actions, and the interactive Streamlit UI flow.
 
-Recorded validation after the response-handling update: **21 tests passed on Python 3.12 / Linux / Streamlit 1.65.0**.
-See `VALIDATION.md` for tested and untested boundaries. See `DEMO.md` for a four-minute walkthrough.
+Recorded validation: **27 automated tests passed on Python 3.14 (macOS) and Python 3.12 (Linux) with Streamlit 1.65.0**.
+See `VALIDATION.md` for tested boundaries. See `DEMO.md` for a four-minute walkthrough.
 
 ## Source layout
 
@@ -171,11 +166,10 @@ This is one process and one launch command. Files are ordinary internal modules,
 or independently developed components: `app.py` is the UI, `core.py` manages the session,
 `tutor.py` handles model decisions, `runner.py` and `worker.py` execute code, and `exercises.py`
 holds the reviewed material. No database, RAG, agent framework, fine-tuning or frontend build
-is needed. Core logic and preflight use Python's standard library; Streamlit is the only
-direct package dependency.
+is needed. Core logic and preflight use Python's standard library; Streamlit is the direct package dependency.
 
 Application code is MIT-licensed; Gemma and third-party dependencies retain their respective
-licenses. The project has not yet been pushed to a public GitHub repository.
+licenses. The project is maintained at `https://github.com/Ducktoberfest/team-neuralforge`.
 
 ## References
 

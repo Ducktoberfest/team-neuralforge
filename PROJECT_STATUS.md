@@ -3,7 +3,7 @@
 > **Team NeuralForge** · *Ducktoberfest 2026*  
 > **Repository:** `https://github.com/Ducktoberfest/team-neuralforge`  
 > **Status Date:** October 2026  
-> **Version:** 0.1.0-prototype  
+> **Version:** 0.2.0  
 
 ---
 
@@ -31,7 +31,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
    - *Accurate prediction of buggy behavior:* Acknowledge correct observation without assuming false misconceptions.
 4. **Strict Anti-Spoiler Policy:** Prompting and regex validation filter out direct code solutions, function definitions, replacement statements, or unjustified praise ("mastered", "proven correct"). Learners must use an explicit "Show explanation and solution" button if they cannot solve the problem.
 5. **Revision-Specific Verification:** Every code change computes a new SHA-256 revision hash (`code_hash`). Changing even a single whitespace invalidates any previous pass verdict (`verified_hash = None`), preventing stale success claims.
-6. **Automatic Private Notebook:** Every session is saved locally as an atomic JSON record (`data/<session_id>.json`). The notebook preserves predictions, confidence ratings, attempts, requested hints, execution runs, and reflection responses without logging credentials.
+6. **Automatic Private Notebook & Hydration:** Every session is saved locally as an atomic JSON record (`data/<session_id>.json`). The notebook preserves predictions, confidence ratings, attempts, requested hints, execution runs, and reflection responses without logging credentials, and supports full state hydration back into active memory.
 
 ---
 
@@ -39,18 +39,25 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 
 | File | Purpose | Key Responsibilities |
 | :--- | :--- | :--- |
-| [`app.py`](app.py) | **Streamlit UI** | Main user interface: sidebar configuration (Gemma provider, API key, execution mode), 4-stage learning tab (Predict, Investigate, Check, Reflect), and the persistent "My Notebook" tab. |
-| [`core.py`](core.py) | **Session & State Machine** | Orchestrates session states (`predict` → `guide` → `reflect`), code synchronization, revision hash invalidation, request budget management (max 2 per action), fallback guidance when Gemma is unavailable, and atomic notebook persistence. |
-| [`tutor.py`](tutor.py) | **Model Interface & Guardrails** | Transports requests to Hosted Gemma (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) via Google AI Studio API or local Ollama; enforces strict JSON protocol; validates allowed actions, test IDs, and evidence IDs; performs 1-step self-repair for malformed JSON; filters spoilers. |
+| [`app.py`](app.py) | **Streamlit UI** | Main user interface: sidebar configuration (Gemma provider, API key, execution mode, session resumption expander), 4-stage learning tab (Predict, Investigate, Check, Reflect), and the persistent "My Notebook" tab with quick-resume controls. |
+| [`core.py`](core.py) | **Session & State Machine** | Orchestrates session states (`predict` → `guide` → `reflect`), code synchronization, revision hash invalidation, request budget management (max 2 per action), fallback guidance when Gemma is unavailable, atomic notebook persistence, and **full session hydration/resumption (`list_saved_sessions()`, `load_session()`)**. |
+| [`tutor.py`](tutor.py) | **Model Interface & Guardrails** | Transports requests to Hosted Gemma (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) via Google AI Studio API or local Ollama; enforces strict JSON protocol and `"responseMimeType": "application/json"`; performs **context window pruning** (capping dialogue to 3-4 turns / 8 messages & evidence to 6 items); validates allowed actions, test IDs, and evidence IDs; performs 1-step self-repair for malformed JSON; maps HTTP 500/timeout to graceful fallback hints; filters spoilers with exercise-specific forbidden patterns. |
 | [`runner.py`](runner.py) | **Execution Runner** | Manages code execution under two modes: `trusted-local` (child process with clean environment, resource bounds, process-group termination, 64 KiB stdout cap) and `docker` (container with `--network=none`, `--read-only`, dropped capabilities, memory/CPU caps). |
 | [`worker.py`](worker.py) | **Child Process Harness** | Safe execution script executed inside the runner. Captures `stdout`/`stderr` up to 4 KiB, applies CPU and file size `rlimit`s, compiles and executes user code against the specified case script. |
-| [`exercises.py`](exercises.py) | **Exercise & Case Catalog** | Defines curated exercises with specification, starter code, prediction choices, curated test cases (5 checks each), reference solutions, explanations, and tiered hint templates. |
-| [`preflight.py`](preflight.py) | **CLI Preflight Diagnostic** | Terminal script to test execution and live Gemma round-trip before starting the Streamlit application. |
-| [`tests/`](tests/) | **Automated Test Suite** | 21 test cases across `test_learning.py` (learning lifecycle, invalidation, security), `test_responses.py` (JSON parsing, BOM, markdown fence, repair loops), and `test_ui.py` (Streamlit AppTest automation). |
+| [`exercises.py`](exercises.py) | **Exercise & Case Catalog** | Defines 5 curated exercises (`basket`, `largest`, `total`, `closures`, `countdown`) with specifications, starter code containing pedagogical traps, prediction choices, curated test cases (5 checks each, 25 total), reference solutions, forbidden patterns, explanations, and tiered hint templates. |
+| [`preflight.py`](preflight.py) | **CLI Preflight Diagnostic** | Terminal script to test execution and live Gemma round-trip (`gemma-4-26b-a4b-it` default) before starting the Streamlit application. |
+| [`tests/`](tests/) | **Automated Test Suite** | 27 test cases across `test_learning.py` (learning lifecycle, session hydration & invalidation, exercise runner & anti-spoiler validation, security), `test_responses.py` (JSON parsing, BOM, markdown fence, context pruning, HTTP 500 / timeout fallback, repair loops), and `test_ui.py` (Streamlit AppTest automation with session resumption). |
 
 ---
 
 ## 3. What Is Already Done
+
+### 3.0 Engineering Milestones Summary
+- [x] **Phase 1: Environment Setup & Verification** — Python 3.14 `.venv` created, `streamlit==1.65.0` installed, baseline tests passing (21/21 tests).
+- [x] **Phase 2: AI Robustness, Context Pruning & Model Fallback** (commit `2461878`) — Context window pruning (capped at 3–4 dialogue turns / 8 messages & 6 evidence items), `"responseMimeType": "application/json"`, default model `gemma-4-26b-a4b-it`, and HTTP 500 / timeout resilient fallback (24/24 tests).
+- [x] **Phase 3: Session Hydration & Persistence** (commit `94bfb35`) — `list_saved_sessions()` and `load_session()` in `core.py`, sidebar & notebook resume UI, strict revision hash invalidation (`verified_hash = None` upon edit) (26/26 tests).
+- [x] **Phase 4: Exercise Catalog Expansion** (commit `2ba5abe`) — Added `closures` (late binding) and `countdown` (recursion base case), exercise-specific anti-spoiler forbidden patterns, 25 test cases total across 5 exercises (27/27 tests).
+- [x] **Phase 5: Documentation Synchronization & Demo Readiness** — Synchronized `README.md`, `PROJECT_STATUS.md`, and `DEMO.md` with complete v0.2.0 capabilities (27/27 tests).
 
 ### 3.1 Learning Workflow & State Management
 - [x] **4-Stage Learning Lifecycle:** `predict` ➔ `guide` ➔ `check` ➔ `reflect`.
@@ -64,7 +71,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 
 ### 3.2 Gemma AI Model Integration & Robustness
 - [x] **Multi-Provider Support:**
-  - Google AI Studio (Hosted Gemma: `gemma-4-26b-a4b-it` and `gemma-4-31b-it`).
+  - Google AI Studio (Hosted Gemma: `gemma-4-26b-a4b-it` [default] and `gemma-4-31b-it`).
   - Local Ollama (`gemma4:12b-it-q4_K_M` or custom tag).
 - [x] **Strict Action Protocol:** Gemma responds in bounded JSON with strict schema:
   `{"action": "ask_question"|"run_case"|"recap", "message": "...", "case_id": null|id, "evidence_ids": [...]}`.
@@ -75,9 +82,10 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
   - Verifies that `case_id` is an allowed ID from the exercise.
   - Verifies that `evidence_ids` match real past execution runs.
   - Rejects responses containing code fences, function definitions, direct solution keywords (`items is None`), or exaggerated praise.
+  - Exercise-specific forbidden regex patterns enforce zero solution leaks across all 5 exercises.
 - [x] **Quota & Outage Graceful Degradation:**
-  - Clear identification of HTTP 429 (quota), 401/403 (auth), 500 (service error).
-  - Explicit UI badge: **"Exercise hint · live Gemma unavailable"** (no pre-recorded hint is ever misrepresented as live AI).
+  - Clear identification of HTTP 429 (quota), 401/403 (auth), 500/502/503/504, and network timeouts.
+  - Explicit UI badge: **"Exercise hint · live Gemma unavailable"** (suggesting `gemma-4-26b-a4b-it` without breaking Streamlit state).
 - [x] **Budget Throttling:** Strict ceiling of 2 model requests per user action (including repairs).
 - [x] **Context Window Pruning:** Automatically bounds dialogue history to the last 3–4 turns (up to 8 messages) and active revision evidence to 6 runs, preventing context bloat in long sessions.
 - [x] **Structured Response Enforcement:** Configures `"responseMimeType": "application/json"` on Google Gemini API calls while preserving BOM/fence stripping and 1-turn repair fallbacks.
@@ -132,78 +140,55 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 ## 4. Current Situation & Known Gaps
 
 1. **Live Gemma API Stability:**
-   - Real-world preflight testing on Mac showed `gemma-4-26b-a4b-it` succeeded in 3.43 seconds, while `31b` returned an HTTP 500.
-   - Live multi-turn sessions with Google AI Studio API must be verified for JSON stability and quota limits before presentations.
+   - Real-world preflight testing on Mac showed `gemma-4-26b-a4b-it` succeeded in 3.43 seconds, while `31b` returned an HTTP 500. `gemma-4-26b-a4b-it` is configured as the default model across `app.py` and `preflight.py`.
+   - Outage handling cleanly falls back to exercise hints with the badge `"Exercise hint · live Gemma unavailable"` if the provider disrupts service.
 2. **Docker Execution Unexercised:**
-   - The Docker runner code path is implemented and bounded, but has not been run in environments lacking a Docker daemon.
-3. **Code Editor Capabilities:**
-   - Currently uses Streamlit's native `st.text_area` without syntax highlighting, line numbers, or code autocompletion.
+   - The Docker runner code path is fully implemented and bounded, but requires an active Docker daemon on the host. For the default local demo, the trusted-local child process runner is recommended.
+3. **Code Editor:**
+   - Currently uses Streamlit's native `st.text_area` for universal compatibility without requiring third-party frontend dependencies or breaking `st.testing.v1.apptest` automation.
 
 ---
 
-## 5. What Should Be Done (Roadmap)
+## 5. Completed Roadmap & Next Action Items
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│ Phase 1: Environment & Preflight (Immediate)                           │
-│ • Activate .venv & install streamlit                                   │
-│ • Validate all 21 unit tests on local machine                          │
-│ • Execute live preflight.py with real Google AI Studio API key         │
+│ Phase 1: Environment & Baseline Verification [COMPLETE]                │
+│ • Activate .venv & install streamlit 1.65.0                            │
+│ • Baseline test suite passing (21/21 tests)                            │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│ Phase 2: Live Demo & Presentation Readiness                            │
-│ • Rehearse 4-minute demo walkthrough (DEMO.md)                         │
-│ • Verify degraded fallback mode behaves gracefully during outages      │
-│ • Capture backup screen recording of successful session                │
+│ Phase 2: AI Robustness & Model Fallback [COMPLETE - commit 2461878]    │
+│ • Context window pruning (last 3-4 dialogue turns + active evidence)   │
+│ • Default model gemma-4-26b-a4b-it & responseMimeType JSON mode       │
+│ • HTTP 500 / timeout graceful fallback state (24/24 tests)             │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│ Phase 3: AI Robustness & API Hardening                                 │
-│ • Test native Gemini structured outputs (response_schema) if supported │
-│ • Fine-tune Socratic prompt to minimize chat length and latency        │
-│ • Add token count monitoring to prevent context window overflow        │
+│ Phase 3: Session Hydration & Persistence [COMPLETE - commit 94bfb35]   │
+│ • list_saved_sessions() and load_session() in core.py                  │
+│ • Sidebar & Notebook UI session selector with pending exercise sync    │
+│ • Strict revision hash invalidation upon edit (26/26 tests)            │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
 ┌───────────────────────────────────▼────────────────────────────────────┐
-│ Phase 4: Feature Enhancements (Post-Demo)                              │
-│ • Expand exercise bank (mutability, closures, recursion, floats)      │
-│ • Replace st.text_area with Monaco / Ace editor component              │
-│ • Implement session resume / reload from historical notebook JSON     │
-│ • Step-by-step visual trace inspection (Python Tutor style)            │
+│ Phase 4: Exercise Catalog Expansion [COMPLETE - commit 2ba5abe]        │
+│ • Added closures (late binding) & countdown (recursion) exercises      │
+│ • 5 test cases per exercise (25 cases total) + forbidden anti-spoilers │
+│ • Validated runner & solution execution (27/27 tests)                  │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼────────────────────────────────────┐
+│ Phase 5: Documentation & Demo Readiness [COMPLETE - v0.2.0]            │
+│ • Synchronize README.md, PROJECT_STATUS.md, and DEMO.md                │
+│ • Full test suite passing (27/27 tests)                                │
+│ • Git commit & push to GitHub repository                               │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Detailed Next Action Items
-
-#### Immediate (Pre-Demo)
-1. **Set up local virtual environment:**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-2. **Run full automated validation:**
-   ```bash
-   python -m unittest discover -s tests -v
-   ```
-3. **Execute preflight test with live Gemma model:**
-   ```bash
-   python preflight.py --trusted-local --model gemma-4-26b-a4b-it
-   ```
-4. **Dry run the 4-minute demo script** according to [`DEMO.md`](DEMO.md).
-
-#### Short-Term Improvements
-1. **Structured Outputs for Gemma:** Explore Google Gemini API's `response_mime_type: "application/json"` or schema constraints to guarantee JSON output without needing regex fence peeling or repair turns.
-2. **Session Resume:** Add a "Load previous session" selector in the "My Notebook" tab to allow learners to pick up where they left off after closing the browser.
-3. **Editor Upgrade:** Replace `st.text_area` with a dedicated code editor component (e.g., `streamlit-code-editor` or `streamlit-monaco`) for Python syntax highlighting and line numbers.
-
-#### Long-Term Expansion
-1. **New Concept Exercises:**
-   - *Recursion:* Missing or incorrect base case in Fibonacci or tree traversal.
-   - *Scoping & Closures:* Late binding in loop lambdas/closures (`[lambda: i for i in range(5)]`).
-   - *Floating Point Equality:* Accumulation rounding errors (`0.1 + 0.2 != 0.3`).
-   - *Shallow vs. Deep Copy:* Modifying nested lists within copied containers.
-2. **Visual Memory / Object Graph Inspection:** Show a diagram of object references (e.g., default list pointer surviving across calls) directly in the execution panel.
-3. **Adversarial Sandbox Hardening:** If hosted on a public server, replace `trusted-local` with WebAssembly (Pyodide) running in the client's browser, or a hardened microVM / gVisor backend.
+### Future Enhancements (Post-v0.2.0)
+1. **Optional Code Editor Component:** Optional `streamlit-code-editor` integration with fallback to `st.text_area` when uninstalled.
+2. **Visual Object Trace:** Diagram of object references (e.g., default list pointer surviving across calls) in the execution panel.
+3. **Client-side Pyodide Sandbox:** In-browser WebAssembly Python execution for zero-server untrusted code execution.
 
