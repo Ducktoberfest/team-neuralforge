@@ -133,6 +133,14 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
   - *Bug:* Base case boundary omission `if n <= 1: return [1]`.
   - *Trap:* Omits 0 from countdown descent and returns `[1]` for zero and negative inputs.
   - *Suite:* 5 test cases covering normal countdown, zero boundary, single element (1), negative inputs, and large recursion chain.
+- [x] **Exercise 6: `shallow_copy` ("The copy that wasn't independent")**
+  - *Bug:* Shallow list copying `list(grid)` or `grid.copy()` on a 2D grid.
+  - *Trap:* The outer list is fresh, but each inner row points to the identical list reference in memory; mutating copy modifies original.
+  - *Suite:* 5 test cases covering separate cells, appending to row, empty grid, single-row grid, and row memory identity verification.
+- [x] **Exercise 7: `scope_leak` ("The variable found too late")**
+  - *Bug:* Assigning to an enclosing variable (`count += step`) inside an inner closure function without `nonlocal`.
+  - *Trap:* Python compiler treats any variable assigned within a function as local; reading it before assignment raises `UnboundLocalError`.
+  - *Suite:* 5 test cases covering consecutive calls, custom step increments, negative steps, independent counter instances, and default start parameters.
 
 ### 3.5 Persistence, Hydration & Privacy
 - [x] **Atomic JSON Notebooks:** Writes to a tempfile in `data/`, flushes, fsyncs, and replaces atomically.
@@ -142,7 +150,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Session Export:** Downloadable JSON report button in the UI.
 
 ### 3.6 Automated Testing
-- [x] **Unit & Integration Suite:** 27 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, exercise-specific anti-spoiler verification, and Streamlit UI flow.
+- [x] **Unit & Integration Suite:** 37 tests covering execution runner, timeout handling, syntax errors, output limits, model response parsing, JSON fences, single repair loop, context window pruning, HTTP 500 and timeout graceful fallbacks, session hydration & invalidation, exercise-specific anti-spoiler verification, transfer reflection checks across all 7 exercises, and Streamlit UI flow.
 
 ---
 

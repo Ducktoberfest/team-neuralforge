@@ -109,20 +109,22 @@ If the model fails or is offline, real execution continues and guidance is visib
 
 ## What's implemented
 
-- **Five curated Python exercises** spanning foundational traps:
+- **Seven curated Python exercises** spanning foundational traps:
   1. `basket` — Mutable default arguments (`items=[]`).
   2. `largest` — Initial state assumptions & all-negative lists (`best = 0`).
   3. `total` — Off-by-one loop boundaries (`range(len(numbers) - 1)`).
   4. `closures` — Late-binding loop variables in lambdas / closures.
   5. `countdown` — Base case boundary omission in recursion.
-- Exactly 5 reviewed test cases per exercise (25 execution cases total), distinguishing ordinary checks from trap probes.
+  6. `shallow_copy` — Shallow copying in nested structures (`list(grid)` / `grid.copy()`).
+  7. `scope_leak` — Enclosing scope rebinding and `UnboundLocalError` without `nonlocal`.
+- Exactly 5 reviewed test cases per exercise (35 execution cases total), distinguishing ordinary checks from trap probes.
 - Confidence-sensitive model context and a bounded JSON action protocol.
 - Model-selected challenges and real output fed back to Gemma; at most two calls per event.
 - **Session hydration & resumption:** Saved sessions from `data/*.json` can be restored into active memory via the sidebar or "My Notebook" tab.
 - **Strict revision tracking:** SHA-256 hash invalidates pass status immediately if learner code changes by even a single character (`verified_hash = None`).
-- Anti-spoiler regex verification with exercise-specific forbidden patterns.
+- Anti-spoiler regex verification with exercise-specific forbidden patterns across all 7 exercises.
 - Automatic local notebook upserts, historical evidence timeline, and JSON export.
-- **Interactive transfer checks:** Stage 4 (Reflect) diagnostic prediction checks across all 5 exercises, testing mental model transfer on novel code snippets before concluding the session.
+- **Interactive transfer checks:** Stage 4 (Reflect) diagnostic prediction checks across all 7 exercises, testing mental model transfer on novel code snippets before concluding the session.
 - Execution event panel showing exact selected actions and child process outputs.
 
 The exercise bank gives the agent safe, interpretable action choices. It does not script the
