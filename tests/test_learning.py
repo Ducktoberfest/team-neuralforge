@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 
 from core import (check_correction, guide, list_saved_sessions, load_notebook,
-                  load_session, new_session, predict, reveal, save_notebook, sync_code)
-from exercises import BASKET, CLOSURES, COUNTDOWN, EXERCISES
+                  load_session, new_session, predict, record_transfer, reveal, save_notebook, sync_code)
+from exercises import BASKET, CLOSURES, COUNTDOWN, EXERCISES, TransferReflection
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
 
@@ -227,6 +227,65 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(valid_closures["message"], "What is the value of i?")
         valid_countdown = parse_decision(json.dumps(base), countdown_ctx)
         self.assertEqual(valid_countdown["message"], "What is the value of i?")
+
+    def test_transfer_reflection_metadata_and_interactive_check(self):
+        for exercise_id, exercise in EXERCISES.items():
+            with self.subTest(exercise=exercise_id):
+                reflection = exercise.reflection
+                self.assertIsNotNone(reflection, f"Missing reflection in {exercise_id}")
+                self.assertIsInstance(reflection, TransferReflection)
+                self.assertIsInstance(reflection.transfer_snippet, str)
+                self.assertGreater(len(reflection.transfer_snippet), 0)
+                self.assertIsInstance(reflection.transfer_prompt, str)
+                self.assertGreater(len(reflection.transfer_prompt), 0)
+                self.assertIsInstance(reflection.transfer_choices, tuple)
+                self.assertIn(len(reflection.transfer_choices), (3, 4))
+                self.assertIsInstance(reflection.correct_choice_index, int)
+                self.assertTrue(0 <= reflection.correct_choice_index < len(reflection.transfer_choices))
+                self.assertIsInstance(reflection.explanation, str)
+                self.assertGreater(len(reflection.explanation), 0)
+
+                # Verify dict-style interface compatibility
+                self.assertEqual(reflection["transfer_snippet"], reflection.transfer_snippet)
+                self.assertEqual(reflection.get("transfer_prompt"), reflection.transfer_prompt)
+                self.assertIn("transfer_choices", reflection)
+                self.assertEqual(dict(reflection)["correct_choice_index"], reflection.correct_choice_index)
+
+        # Interactive check execution & persistence testing
+        session = new_session(BASKET)
+        refl = BASKET.reflection
+        wrong_choice = refl.transfer_choices[0]
+        correct_choice = refl.transfer_choices[refl.correct_choice_index]
+
+        # 1. Test incorrect submission
+        is_correct = record_transfer(session, BASKET, wrong_choice, "My preliminary hypothesis")
+        self.assertFalse(is_correct)
+        self.assertEqual(session["followup_status"], "needs_review")
+        self.assertFalse(session["transfer_correct"])
+        self.assertEqual(session["transfer_prediction"], wrong_choice)
+        self.assertEqual(session["followup_answer"]["prediction"], wrong_choice)
+        self.assertEqual(session["events"][-1]["type"], "transfer_check_submitted")
+        self.assertFalse(session["events"][-1]["correct"])
+
+        # 2. Test correct submission
+        is_correct = record_transfer(session, BASKET, correct_choice, "Both names point to same list")
+        self.assertTrue(is_correct)
+        self.assertEqual(session["followup_status"], "correct_on_prepared_question")
+        self.assertTrue(session["transfer_correct"])
+        self.assertEqual(session["transfer_prediction"], correct_choice)
+        self.assertEqual(session["followup_answer"]["prediction"], correct_choice)
+        self.assertEqual(session["reflection_response"]["prediction"], correct_choice)
+        self.assertTrue(session["events"][-1]["correct"])
+
+        # 3. Test persistence to disk and session hydration
+        with tempfile.TemporaryDirectory() as directory:
+            save_notebook(session, directory)
+            loaded = load_session(session["id"], directory)
+            self.assertIsNotNone(loaded)
+            self.assertEqual(loaded["transfer_prediction"], correct_choice)
+            self.assertTrue(loaded["transfer_correct"])
+            self.assertEqual(loaded["followup_status"], "correct_on_prepared_question")
+            self.assertEqual(loaded["reflection_response"]["prediction"], correct_choice)
 
 
 if __name__ == "__main__":

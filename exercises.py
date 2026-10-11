@@ -12,6 +12,33 @@ class Case:
 
 
 @dataclass(frozen=True)
+class TransferReflection:
+    transfer_snippet: str
+    transfer_prompt: str
+    transfer_choices: tuple
+    correct_choice_index: int
+    explanation: str
+
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def get(self, key, default=None):
+        return getattr(self, key, default)
+
+    def __contains__(self, key):
+        return hasattr(self, key)
+
+    def keys(self):
+        return ("transfer_snippet", "transfer_prompt", "transfer_choices", "correct_choice_index", "explanation")
+
+    def values(self):
+        return tuple(getattr(self, k) for k in self.keys())
+
+    def items(self):
+        return tuple((k, getattr(self, k)) for k in self.keys())
+
+
+@dataclass(frozen=True)
 class Exercise:
     id: str
     title: str
@@ -27,6 +54,7 @@ class Exercise:
     explanation: str
     hints: tuple
     forbidden: tuple = ()
+    reflection: TransferReflection = None
 
     def case(self, case_id):
         return next(c for c in (self.prediction, *self.cases) if c.id == case_id)
@@ -68,6 +96,15 @@ BASKET = Exercise(
     hints=("Which part of the second output came from the earlier call?",
            "When is a function's default value created, and how long can that object survive?",
            "How does your condition distinguish a missing basket from a supplied empty basket?"),
+    reflection=TransferReflection(
+        transfer_snippet="first = [1]\nsecond = first\nsecond.append(2)\nprint(first)",
+        transfer_prompt="What will this code print?",
+        transfer_choices=("[1]", "[1, 2]", "[2]", "Error"),
+        correct_choice_index=1,
+        explanation=("Both 'first' and 'second' refer to the exact same list in memory. "
+                     "Mutating the list via 'second' directly affects 'first', just as a default "
+                     "mutable argument is shared across independent function calls."),
+    ),
 )
 
 LARGEST = Exercise(
@@ -91,6 +128,21 @@ LARGEST = Exercise(
     explanation="An initial candidate must be justified by the input. Handle the empty case explicitly before choosing an element.",
     hints=("Is the returned value present in the input?", "What assumption is made by the initial candidate?",
            "Consider the initial candidate and the separate empty-input requirement."),
+    reflection=TransferReflection(
+        transfer_snippet=("def find_minimum(numbers):\n"
+                          "    lowest = 100\n"
+                          "    for n in numbers:\n"
+                          "        if n < lowest:\n"
+                          "            lowest = n\n"
+                          "    return lowest\n\n"
+                          "print(find_minimum([120, 150, 200]))"),
+        transfer_prompt="What does find_minimum([120, 150, 200]) return?",
+        transfer_choices=("120", "100", "150", "ValueError"),
+        correct_choice_index=1,
+        explanation=("Because 'lowest' was arbitrarily initialized to 100, if all numbers in the input "
+                     "exceed 100, the function returns 100 even though 100 was not in the input. "
+                     "An initial candidate must be drawn directly from the input data (e.g. numbers[0])."),
+    ),
 )
 
 TOTAL = Exercise(
@@ -111,6 +163,19 @@ TOTAL = Exercise(
     explanation="The original range stops before the final valid index. Iterating directly over values includes every element.",
     hints=("Which input values contributed to the observed total?", "Which indices does this range actually produce?",
            "Compare the last index the loop visits with the last valid index of the list."),
+    reflection=TransferReflection(
+        transfer_snippet=("chars = ['a', 'b', 'c', 'd']\n"
+                          "result = ''\n"
+                          "for i in range(len(chars) - 1):\n"
+                          "    result += chars[i]\n"
+                          "print(result)"),
+        transfer_prompt="What will this code print?",
+        transfer_choices=("abcd", "abc", "bcd", "ab"),
+        correct_choice_index=1,
+        explanation=("range(len(chars) - 1) produces indices 0, 1, and 2, completely omitting index 3 ('d'). "
+                     "In Python, range(stop) is exclusive of stop, so range(n - 1) iterates n - 1 times, "
+                     "stopping before the final element just as in the total exercise."),
+    ),
 )
 
 CLOSURES = Exercise(
@@ -152,6 +217,18 @@ CLOSURES = Exercise(
            "What is the value of 'i' in the surrounding scope after the loop completes?",
            "How can you bind the current loop value of 'i' into each function's default arguments at creation time?"),
     forbidden=(r"\bi\s*=\s*i\b", r"\bdefault\s+(argument|parameter)", r"\blate\s+binding\b"),
+    reflection=TransferReflection(
+        transfer_snippet=("actions = []\n"
+                          "for word in ['hello', 'world']:\n"
+                          "    actions.append(lambda: word)\n\n"
+                          "print([act() for act in actions])"),
+        transfer_prompt="What will [act() for act in actions] evaluate to?",
+        transfer_choices=("['hello', 'world']", "['world', 'world']", "['hello', 'hello']", "Error"),
+        correct_choice_index=1,
+        explanation=("In Python, closures bind variables by name, not value. When the lambdas are executed, "
+                     "the loop has finished and 'word' refers to its final bound value 'world'. "
+                     "To capture the current value at definition time, bind it as a default parameter (lambda w=word: w)."),
+    ),
 )
 
 COUNTDOWN = Exercise(
@@ -192,6 +269,19 @@ COUNTDOWN = Exercise(
            "What does the starter code return when called with 0 or a negative number?",
            "How can you separate the negative input guard from the zero base case?"),
     forbidden=(r"\bn\s*<\s*0\b", r"\bn\s*==\s*0\b", r"\breturn\s*\[0\]"),
+    reflection=TransferReflection(
+        transfer_snippet=("def count_down_strings(n):\n"
+                          "    if n == 1:\n"
+                          "        return ['blastoff!']\n"
+                          "    return [str(n)] + count_down_strings(n - 1)\n\n"
+                          "print(count_down_strings(3))"),
+        transfer_prompt="What will count_down_strings(3) return?",
+        transfer_choices=("['3', '2', '1', 'blastoff!']", "['3', '2', 'blastoff!']", "['3', 'blastoff!']", "['blastoff!']"),
+        correct_choice_index=1,
+        explanation=("The base case terminates at n == 1 without prepending '1' to the resulting list, "
+                     "omitting 1 from the countdown descent. The recursion must continue down to 0 before "
+                     "returning the terminal marker, just like the countdown exercise omitted 0."),
+    ),
 )
 
 EXERCISES = {e.id: e for e in (BASKET, LARGEST, TOTAL, CLOSURES, COUNTDOWN)}

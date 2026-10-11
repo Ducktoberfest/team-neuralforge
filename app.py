@@ -6,7 +6,7 @@ from pathlib import Path
 import streamlit as st
 
 from core import (check_correction, guide, list_saved_sessions, load_notebook,
-                  load_session, new_session, predict, reveal, save_notebook, sync_code)
+                  load_session, new_session, predict, record_transfer, reveal, save_notebook, sync_code)
 from exercises import EXERCISES
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
@@ -244,20 +244,27 @@ with learn:
                     st.rerun()
             st.caption(f'Hint level {session["hint_level"]}/2 · {session["attempts"]} correction attempt(s)')
 
-    if session["stage"] == "reflect" and exercise.id == "basket":
-        with st.expander("Try a related example", expanded=session["followup_status"] == "not_attempted"):
-            st.code("first = [1]\nsecond = first\nsecond.append(2)\nprint(first)", language="python")
+    if session["stage"] == "reflect" and getattr(exercise, "reflection", None):
+        refl = exercise.reflection
+        with st.expander("Transfer Check · Apply what you learned", expanded=session.get("followup_status", "not_attempted") == "not_attempted"):
+            st.caption(f"Test your mental model of **{exercise.concept}** on a new example:")
+            st.code(refl.transfer_snippet, language="python")
             with st.form(f"transfer_{sid}"):
-                followup = st.radio("What is printed?", ["[1]", "[1, 2]", "[2]"], index=None)
-                reason = st.text_input("Explain your prediction")
-                submit_followup = st.form_submit_button("Record my answer")
+                followup = st.radio(refl.transfer_prompt, refl.transfer_choices, index=None, key=f"transfer_choice_{sid}")
+                reason = st.text_input("Explain your reasoning (optional)")
+                submit_followup = st.form_submit_button("Submit Transfer Prediction")
             if submit_followup and followup:
-                session["followup_status"] = "correct_on_prepared_question" if followup == "[1, 2]" else "needs_review"
-                session["followup_answer"] = {"prediction": followup, "explanation": reason[:1500]}
+                record_transfer(session, exercise, followup, reason)
                 persist(session)
                 st.rerun()
-            if session["followup_status"] != "not_attempted":
-                st.info("The checked answer is [1, 2]: both names refer to the same list. This records one follow-up response, not mastery.")
+            if session.get("followup_status") != "not_attempted":
+                correct_answer = refl.transfer_choices[refl.correct_choice_index]
+                if session.get("followup_status") == "correct_on_prepared_question":
+                    st.success(f"🎯 **Spot on!** You correctly predicted `{correct_answer}`.")
+                    st.info(refl.explanation)
+                else:
+                    st.warning(f"🤔 **Not quite.** The correct output is `{correct_answer}`.")
+                    st.info(f"Notice the connection to your earlier bug: {refl.explanation}")
 
     with st.expander("What actually happened"):
         st.caption("Recorded model decisions and real execution events. No simulated agent activity.")
@@ -280,8 +287,11 @@ with notebook:
             st.write(f'Prediction: {entry.get("prediction")} · Confidence: {entry.get("confidence")}/5')
             st.write(f'Observed: {json.dumps(entry.get("initial_observation"), ensure_ascii=False)}')
             st.write(f'Correction attempts: {entry.get("attempts", 0)} · Stronger hints requested: {entry.get("hint_count", 0)}')
-            st.write(f'Outcome: {entry.get("outcome", "in_progress").replace("_", " ")}')
-            st.caption(f'Solution viewed: {entry.get("solution_viewed", False)} · Follow-up: {entry.get("followup_status", "not_attempted")}')
+            if entry.get("transfer_prediction"):
+                transfer_label = "correct" if entry.get("transfer_correct") else "needs review"
+                st.caption(f'Solution viewed: {entry.get("solution_viewed", False)} · Transfer check: {entry.get("transfer_prediction")} ({transfer_label})')
+            else:
+                st.caption(f'Solution viewed: {entry.get("solution_viewed", False)} · Follow-up: {entry.get("followup_status", "not_attempted")}')
             st.caption(f'Validated live model decisions: {entry.get("model_calls", 0)} · Model unavailable/invalid responses: {entry.get("model_unavailable_events", 0)}')
             if entry["id"] != sid:
                 if st.button("Resume this session", key=f"resume_{entry['id']}", use_container_width=True):

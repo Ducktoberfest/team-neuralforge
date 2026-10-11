@@ -24,7 +24,8 @@ def new_session(exercise):
             "messages": [], "runs": [], "events": [], "attempts": 0,
             "hint_level": 0, "hint_count": 0, "solution_viewed": False,
             "verified_hash": None, "outcome": "in_progress", "model_calls": 0,
-            "model_unavailable_events": 0, "followup_status": "not_attempted"}
+            "model_unavailable_events": 0, "followup_status": "not_attempted",
+            "transfer_prediction": None, "transfer_correct": None}
 
 
 def message(session, text, source="Gemma", role="assistant"):
@@ -172,6 +173,31 @@ def reveal(session):
     session["events"].append({"type": "solution_revealed"})
 
 
+def record_transfer(session, exercise, choice, explanation=""):
+    reflection = getattr(exercise, "reflection", None)
+    if not reflection:
+        return False
+    choices = reflection["transfer_choices"] if isinstance(reflection, dict) else reflection.transfer_choices
+    correct_idx = reflection["correct_choice_index"] if isinstance(reflection, dict) else reflection.correct_choice_index
+    correct_choice = choices[correct_idx]
+    is_correct = (choice == correct_choice)
+    session["followup_status"] = "correct_on_prepared_question" if is_correct else "needs_review"
+    session["transfer_prediction"] = choice
+    session["transfer_correct"] = is_correct
+    session["followup_answer"] = {
+        "prediction": choice,
+        "explanation": explanation[:1500] if explanation else "",
+        "correct": is_correct,
+    }
+    session["reflection_response"] = session["followup_answer"]
+    session["events"].append({
+        "type": "transfer_check_submitted",
+        "choice": choice,
+        "correct": is_correct,
+    })
+    return is_correct
+
+
 def save_notebook(session, directory):
     """One record per session, atomic replacement. No credentials or provider raw responses."""
     session["updated_at"] = now()
@@ -284,6 +310,8 @@ def load_session(session_id, directory=None):
         "followup_status": data.get("followup_status", "not_attempted"),
         "followup_answer": data.get("followup_answer"),
         "reflection_response": data.get("followup_answer"),
+        "transfer_prediction": data.get("transfer_prediction"),
+        "transfer_correct": data.get("transfer_correct"),
     }
     return session
 

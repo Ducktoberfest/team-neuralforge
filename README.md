@@ -122,7 +122,7 @@ If the model fails or is offline, real execution continues and guidance is visib
 - **Strict revision tracking:** SHA-256 hash invalidates pass status immediately if learner code changes by even a single character (`verified_hash = None`).
 - Anti-spoiler regex verification with exercise-specific forbidden patterns.
 - Automatic local notebook upserts, historical evidence timeline, and JSON export.
-- Optional conceptual transfer reflection questions.
+- **Interactive transfer checks:** Stage 4 (Reflect) diagnostic prediction checks across all 5 exercises, testing mental model transfer on novel code snippets before concluding the session.
 - Execution event panel showing exact selected actions and child process outputs.
 
 The exercise bank gives the agent safe, interpretable action choices. It does not script the
@@ -157,7 +157,7 @@ state transitions, hash invalidation, notebook upserts, session hydration, timeo
 secret-free child environments, context window pruning, HTTP 500/timeout error recovery,
 invalid model actions, and the interactive Streamlit UI flow.
 
-Recorded validation: **27 automated tests passed on Python 3.14 (macOS) and Python 3.12 (Linux) with Streamlit 1.65.0**.
+Recorded validation: **29 automated tests passed on Python 3.14 (macOS) and Python 3.12 (Linux) with Streamlit 1.65.0**.
 See `VALIDATION.md` for tested boundaries. See `DEMO.md` for a four-minute walkthrough.
 
 ## Source layout

@@ -82,6 +82,58 @@ class InterfaceTests(unittest.TestCase):
                 self.assertEqual(app.session_state["session"]["stage"], "guide")
                 self.assertEqual(app.session_state["session"]["confidence"], 4)
 
+    def test_transfer_check_interactive_ui(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"DATA_DIR": directory}):
+            with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": ""}):
+                from core import revision
+                h = revision(BASKET.solution)
+                saved = {
+                    "schema_version": 1,
+                    "id": "reflectsession456",
+                    "exercise_id": "basket",
+                    "exercise_version": 1,
+                    "concept": "Shared mutable state",
+                    "started_at": "2026-10-11T00:00:00Z",
+                    "updated_at": "2026-10-11T00:05:00Z",
+                    "stage": "reflect",
+                    "code": BASKET.solution,
+                    "code_hash": h,
+                    "verified_hash": h,
+                    "prediction": '["banana"]',
+                    "confidence": 5,
+                    "explanation": "test reason",
+                    "initial_observation": ["apple", "banana"],
+                    "prediction_matches_execution": False,
+                    "messages": [],
+                    "runs": [],
+                    "events": [],
+                    "attempts": 1,
+                    "hint_level": 0,
+                    "hint_count": 0,
+                    "solution_viewed": False,
+                    "outcome": "checked_cases_passed",
+                    "model_calls": 1,
+                    "model_unavailable_events": 0,
+                    "followup_status": "not_attempted",
+                }
+                (Path(directory) / "reflectsession456.json").write_text(json.dumps(saved))
+                app = AppTest.from_file(str(Path(__file__).parents[1] / "app.py"), default_timeout=15).run()
+                self.assertFalse(app.exception)
+                app.button(key="load_session_btn").click().run()
+                self.assertFalse(app.exception)
+                self.assertEqual(app.session_state["session"]["stage"], "reflect")
+
+                # Verify transfer radio exists and can submit a prediction
+                transfer_radio = next(r for r in app.radio if r.key == "transfer_choice_reflectsession456")
+                transfer_radio.set_value("[1, 2]")
+                submit_btn = next(b for b in app.button if b.label == "Submit Transfer Prediction")
+                submit_btn.click().run()
+                self.assertFalse(app.exception)
+                self.assertEqual(app.session_state["session"]["followup_status"], "correct_on_prepared_question")
+                self.assertTrue(app.session_state["session"]["transfer_correct"])
+                self.assertEqual(app.session_state["session"]["transfer_prediction"], "[1, 2]")
+                self.assertTrue(any("Spot on!" in item.value for item in app.success))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -44,9 +44,9 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 | [`tutor.py`](tutor.py) | **Model Interface & Guardrails** | Transports requests to Hosted Gemma (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) via Google AI Studio API or local Ollama; enforces strict JSON protocol and `"responseMimeType": "application/json"`; performs **context window pruning** (capping dialogue to 3-4 turns / 8 messages & evidence to 6 items); validates allowed actions, test IDs, and evidence IDs; performs 1-step self-repair for malformed JSON; maps HTTP 500/timeout to graceful fallback hints; filters spoilers with exercise-specific forbidden patterns. |
 | [`runner.py`](runner.py) | **Execution Runner** | Manages code execution under two modes: `trusted-local` (child process with clean environment, resource bounds, process-group termination, 64 KiB stdout cap) and `docker` (container with `--network=none`, `--read-only`, dropped capabilities, memory/CPU caps). |
 | [`worker.py`](worker.py) | **Child Process Harness** | Safe execution script executed inside the runner. Captures `stdout`/`stderr` up to 4 KiB, applies CPU and file size `rlimit`s, compiles and executes user code against the specified case script. |
-| [`exercises.py`](exercises.py) | **Exercise & Case Catalog** | Defines 5 curated exercises (`basket`, `largest`, `total`, `closures`, `countdown`) with specifications, starter code containing pedagogical traps, prediction choices, curated test cases (5 checks each, 25 total), reference solutions, forbidden patterns, explanations, and tiered hint templates. |
+| [`exercises.py`](exercises.py) | **Exercise & Case Catalog** | Defines 5 curated exercises (`basket`, `largest`, `total`, `closures`, `countdown`) with specifications, starter code containing pedagogical traps, prediction choices, curated test cases (5 checks each, 25 total), reference solutions, forbidden patterns, explanations, tiered hint templates, and `TransferReflection` (transfer snippet, diagnostic prompt, multiple choices, correct index, conceptual explanation). |
 | [`preflight.py`](preflight.py) | **CLI Preflight Diagnostic** | Terminal script to test execution and live Gemma round-trip (`gemma-4-26b-a4b-it` default) before starting the Streamlit application. |
-| [`tests/`](tests/) | **Automated Test Suite** | 27 test cases across `test_learning.py` (learning lifecycle, session hydration & invalidation, exercise runner & anti-spoiler validation, security), `test_responses.py` (JSON parsing, BOM, markdown fence, context pruning, HTTP 500 / timeout fallback, repair loops), and `test_ui.py` (Streamlit AppTest automation with session resumption). |
+| [`tests/`](tests/) | **Automated Test Suite** | 29 test cases across `test_learning.py` (learning lifecycle, session hydration & invalidation, exercise runner, transfer reflection metadata & execution, anti-spoiler validation, security), `test_responses.py` (JSON parsing, BOM, markdown fence, context pruning, HTTP 500 / timeout fallback, repair loops), and `test_ui.py` (Streamlit AppTest automation with session resumption and transfer reflection interaction). |
 
 ---
 
@@ -57,7 +57,8 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Phase 2: AI Robustness, Context Pruning & Model Fallback** (commit `2461878`) — Context window pruning (capped at 3–4 dialogue turns / 8 messages & 6 evidence items), `"responseMimeType": "application/json"`, default model `gemma-4-26b-a4b-it`, and HTTP 500 / timeout resilient fallback (24/24 tests).
 - [x] **Phase 3: Session Hydration & Persistence** (commit `94bfb35`) — `list_saved_sessions()` and `load_session()` in `core.py`, sidebar & notebook resume UI, strict revision hash invalidation (`verified_hash = None` upon edit) (26/26 tests).
 - [x] **Phase 4: Exercise Catalog Expansion** (commit `2ba5abe`) — Added `closures` (late binding) and `countdown` (recursion base case), exercise-specific anti-spoiler forbidden patterns, 25 test cases total across 5 exercises (27/27 tests).
-- [x] **Phase 5: Documentation Synchronization & Demo Readiness** — Synchronized `README.md`, `PROJECT_STATUS.md`, and `DEMO.md` with complete v0.2.0 capabilities (27/27 tests).
+- [x] **Phase 5: Documentation Synchronization & Demo Readiness** (commit `2277041`) — Synchronized `README.md`, `PROJECT_STATUS.md`, and `DEMO.md` with complete v0.2.0 capabilities (27/27 tests).
+- [x] **Phase 6: Interactive Transfer Reflection** — Elevated Stage 4 (`reflect`) with interactive diagnostic transfer checks (`transfer_snippet`, `transfer_prompt`, choices, immediate evaluation, conceptual explanation) across all 5 exercises and notebook persistence (29/29 tests).
 
 ### 3.1 Learning Workflow & State Management
 - [x] **4-Stage Learning Lifecycle:** `predict` ➔ `guide` ➔ `check` ➔ `reflect`.
@@ -67,7 +68,7 @@ Predict with Confidence ➔ Execute ➔ Investigate Evidence ➔ Edit Code ➔ C
 - [x] **Full Suite Verification:** Once the initial check and challenge pass, all 5 cases are run to verify the revision.
 - [x] **Progressive Hinting:** Hint levels 0 (observation probe), 1 (conceptual hint), and 2 (location hint).
 - [x] **Solution Reveal Drawer:** Explicit button to view the reference solution; records that the solution was viewed in the notebook.
-- [x] **Transfer Reflection:** Follow-up conceptual question (e.g., shared reference mutation) after completing the basket exercise.
+- [x] **Interactive Transfer Checks:** Complete Stage 4 diagnostic transfer check across all 5 exercises with immediate evaluation, feedback linking back to root misconception, and atomic notebook persistence.
 
 ### 3.2 Gemma AI Model Integration & Robustness
 - [x] **Multi-Provider Support:**
