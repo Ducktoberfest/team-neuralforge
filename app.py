@@ -272,7 +272,7 @@ learn, notebook = st.tabs(["Learning session", "My notebook"])
 
 with learn:
     if workspace_mode == "own_code":
-        render_own_code(session, model, persist)
+        render_own_code(session, model, persist, runner)
     else:
         st.subheader(exercise.title)
         st.write(exercise.spec)

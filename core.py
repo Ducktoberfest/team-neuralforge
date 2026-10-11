@@ -104,6 +104,10 @@ def sync_code(session, code):
                    outcome="in_progress", stage="guide")
     if "learner_code" in session:
         session["learner_code"] = code
+    session.setdefault("events", []).append({
+        "type": "code_revision",
+        "code_hash": session["code_hash"],
+    })
     return True
 
 
@@ -115,8 +119,86 @@ def record_run(session, exercise, runner, case_id):
     return result
 
 
+def record_own_prediction(session, prediction, confidence, explanation=""):
+    """Record diagnostic pre-run prediction and confidence in own-code session."""
+    session.update(prediction=prediction, confidence=confidence, explanation=explanation[:1500])
+    session.setdefault("events", []).append({
+        "type": "diagnostic_prediction",
+        "code_hash": session["code_hash"],
+        "prediction": prediction,
+        "confidence": confidence,
+        "explanation": explanation[:1500],
+    })
+    return session
+
+
+def record_own_run(session, runner=None, code=None, script=""):
+    """Execute own code in the sandbox and capture results as evidence."""
+    if code is not None:
+        sync_code(session, code)
+    if not runner:
+        from runner import Runner
+        runner = Runner("trusted-local", allow_trusted=True, timeout=2)
+    result = runner.run_custom(session["code"], script=script)
+    session.setdefault("runs", []).append(result)
+    session["attempts"] = session.get("attempts", 0) + 1
+    session.setdefault("events", []).append({
+        "type": "own_execution",
+        "run_id": result["id"],
+        "code_hash": session["code_hash"],
+        "status": result["status"],
+    })
+    captured = result.get("stdout", "")
+    if result.get("error"):
+        captured = (captured + "\n" if captured else "") + result["error"]
+    if captured.strip():
+        session["reported_output"] = captured.strip()[:4000]
+        associate_reported_output(session)
+    return result
+
+
+def guide_tiered(session, model, tier: int = 0):
+    """Deliver a structured Socratic hint according to the selected tier.
+    Tier 0 (Probe): Asks a targeted Socratic question directing attention to runtime evidence.
+    Tier 1 (Mental Model): Explains the underlying language mechanism without referencing the fix.
+    Tier 2 (Location): Points out the specific line or variable interaction causing discrepancy.
+    """
+    session["hint_level"] = max(0, min(2, tier))
+    session["hint_count"] += 1
+    tier_names = {0: "Probe", 1: "Mental Model", 2: "Location"}
+    name = tier_names.get(session["hint_level"], "Hint")
+    message(session, f"Requested Tier {session['hint_level']} Hint ({name})", "Learner", "user")
+    budget = [2]
+    allowed = ["ask_question", "explain_concept", "give_hint", "recap"]
+    return decide(session, None, model, f"tiered_hint_{session['hint_level']}", allowed, budget=budget)
+
+
+def guide_challenge(session, model):
+    """Ask Gemma for a targeted edge-case counterexample or challenge case."""
+    message(session, "Can you provide a challenge test case or edge-case input to test my code?", "Learner", "user")
+    budget = [2]
+    allowed = ["ask_question", "explain_concept", "give_hint"]
+    item = decide(session, None, model, "challenge_case_request", allowed, budget=budget)
+    if item:
+        session["challenge_case"] = item["message"]
+    return item
+
+
 def fallback_question(session, exercise):
     if session.get("mode") == "own_code":
+        tier = session.get("hint_level", 0)
+        if tier == 1:
+            return ("Consider how the programming language handles evaluation and scope here. "
+                    "Does each operation produce a new value or modify existing data? "
+                    "Reflect on how this applies to your code.")
+        elif tier == 2:
+            return ("Look closely at the line where your key variable is assigned or modified. "
+                    "What is its exact value right before the unexpected outcome occurs?")
+        current_runs = [r for r in session.get("runs", []) if r.get("code_hash") == session["code_hash"]]
+        if current_runs and current_runs[-1].get("status") in {"error", "syntax_error"}:
+            return f"The latest execution produced an error: {current_runs[-1].get('error')}. What does this traceback tell you about the problem?"
+        if session.get("prediction"):
+            return f"You predicted: '{session.get('prediction')}'. How does that compare with what actually happened when the code ran?"
         return ("The live tutor could not respond. You can still save your code and reasoning. "
                 "For debugging, identify one input that exposes the issue and compare the result "
                 "with what you wanted. Retry the live tutor when the connection is available.")
@@ -420,6 +502,7 @@ def load_session(session_id, directory=None):
         "reported_output_language": data.get("reported_output_language"),
         "learner_notes": data.get("learner_notes", ""),
         "tutor_notes": data.get("tutor_notes", []),
+        "challenge_case": data.get("challenge_case"),
     }
     return session
 

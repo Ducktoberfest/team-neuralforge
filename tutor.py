@@ -257,7 +257,7 @@ def context_for(session, exercise, event, actions, cases):
     own_code = session.get("mode") == "own_code"
     evidence = [r for r in session.get("runs", []) if r.get("code_hash") == code_hash][-MAX_RECENT_EVIDENCE:]
     compact = [{**{k: v for k, v in r.items() if k in
-                  {"id", "case_id", "title", "code_hash", "actual", "status", "passed", "error"}},
+                  {"id", "case_id", "title", "code_hash", "actual", "status", "passed", "error", "stdout"}},
                 "required_result": r.get("expected")} for r in evidence]
     recent_messages = [{"role": m["role"], "text": m["text"][:2400],
                         "code_hash": m.get("code_hash", code_hash)}
@@ -273,13 +273,25 @@ def context_for(session, exercise, event, actions, cases):
                "hint_level": session.get("hint_level", 0), "allowed_actions": actions,
                "allowed_case_ids": cases, "protected_identifiers": protected,
                "forbidden": list(getattr(exercise, "forbidden", ())) if exercise else [],
-               "execution_status": "not_run_by_app" if own_code else "see_execution_evidence"}
+               "execution_status": "not_run_by_app" if (own_code and not evidence) else "see_execution_evidence"}
     if own_code:
         context.update(specification=session.get("goal", ""),
                        learner_reported_output={"text": session.get("reported_output", ""),
                           "code_hash": session.get("reported_output_code_hash"),
                           "matches_current_revision": reported_output_is_current(session)},
                        checked_case_count=0, checked_suite_passed=False, case_catalog=[])
+        if session.get("prediction"):
+            context["prediction"] = session.get("prediction")
+            context["confidence"] = session.get("confidence")
+        if session.get("challenge_case"):
+            context["challenge_case"] = session.get("challenge_case")
+        tier = session.get("hint_level", 0)
+        tier_specs = {
+            0: "Tier 0 (Probe): Ask a targeted Socratic question directing attention to runtime evidence or observed output.",
+            1: "Tier 1 (Mental Model): Explain the underlying language mechanism or conceptual rule without referencing or spoiling the fix.",
+            2: "Tier 2 (Location): Pinpoint the specific line or variable interaction causing the discrepancy.",
+        }
+        context["hint_tier_goal"] = tier_specs.get(tier, tier_specs[0])
         return context
     prediction_run = next((r for r in session.get("runs", [])
                            if r.get("case_id") == "prediction" and r.get("status") == "completed"), None)

@@ -36,13 +36,25 @@ def main():
         with contextlib.redirect_stdout(output), contextlib.redirect_stderr(output):
             namespace = {"__name__": "__submission__"}
             exec(compile(payload["code"], "submission.py", "exec"), namespace)
-            scope = {"fn": namespace[payload["entrypoint"]]}
-            exec(compile(payload["script"], "checked_case.py", "exec"), scope)
-            value = scope["actual"]
-            encoded = json.dumps(value, ensure_ascii=False, allow_nan=False)
-            if len(encoded) > 16384:
-                raise ValueError("Result exceeds 16 KiB")
-            result = {"status": "completed", "actual": value}
+            if payload.get("entrypoint") and payload.get("script"):
+                scope = {"fn": namespace[payload["entrypoint"]]}
+                exec(compile(payload["script"], "checked_case.py", "exec"), scope)
+                value = scope["actual"]
+                encoded = json.dumps(value, ensure_ascii=False, allow_nan=False)
+                if len(encoded) > 16384:
+                    raise ValueError("Result exceeds 16 KiB")
+                result = {"status": "completed", "actual": value}
+            elif payload.get("script"):
+                scope = {**namespace}
+                exec(compile(payload["script"], "checked_case.py", "exec"), scope)
+                value = scope.get("actual")
+                if value is not None:
+                    encoded = json.dumps(value, ensure_ascii=False, allow_nan=False)
+                    if len(encoded) > 16384:
+                        raise ValueError("Result exceeds 16 KiB")
+                result = {"status": "completed", "actual": value}
+            else:
+                result = {"status": "completed", "actual": None}
     except BaseException as exc:
         result = {"status": "error", "error": f"{type(exc).__name__}: {str(exc)[:300]}",
                   "traceback": traceback.format_exc(limit=3)[-2000:]}

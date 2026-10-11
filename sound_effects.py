@@ -16,14 +16,20 @@ from typing import Dict, Literal
 
 import streamlit as st
 
-SoundName = Literal["quack", "squeak", "curious", "success", "hint", "retry"]
+SoundName = Literal["quack", "squeak", "curious", "success", "hint", "retry", "submit", "fanfare"]
 
-AVAILABLE_SOUNDS = ("quack", "squeak", "curious", "success", "hint", "retry")
+AVAILABLE_SOUNDS = ("quack", "squeak", "curious", "success", "hint", "retry", "submit", "fanfare")
+
+SOUND_ALIASES: Dict[str, str] = {
+    "submit": "curious",
+    "fanfare": "success",
+}
 
 
 @functools.lru_cache(maxsize=16)
 def synthesize_wav(kind: SoundName = "quack", sample_rate: int = 22050) -> bytes:
     """Synthesize pure WAV audio bytes for rubber duck sound effects."""
+    kind = SOUND_ALIASES.get(kind, kind)  # type: ignore
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
         wf.setnchannels(1)
@@ -135,9 +141,15 @@ def get_sound_data_uri(kind: SoundName = "quack") -> str:
 
 def queue_sound(kind: SoundName) -> None:
     """Queue a sound to be played on the next Streamlit rendering cycle."""
-    if kind not in AVAILABLE_SOUNDS:
+    actual_kind = SOUND_ALIASES.get(kind, kind)
+    if actual_kind not in AVAILABLE_SOUNDS:
         return
-    st.session_state["_pending_sound"] = kind
+    st.session_state["_pending_sound"] = actual_kind
+
+
+def play_sound(kind: SoundName) -> None:
+    """Queue a sound effect for playback (convenience alias)."""
+    queue_sound(kind)
 
 
 def play_sound_immediate(kind: SoundName) -> None:

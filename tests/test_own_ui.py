@@ -89,3 +89,87 @@ class OwnCodeInterfaceTests(unittest.TestCase):
         app.button(key=f"confirm_output_{sid}").click().run()
         self.assertFalse(app.exception)
         self.assertTrue(reported_output_is_current(app.session_state["session"]))
+
+    def test_diagnostic_prediction_and_confidence_captured_and_saved(self):
+        app = self.app()
+        sid = app.session_state["session"]["id"]
+        app.text_input(key=f"prediction_{sid}").set_value("Returns 42").run()
+        app.slider(key=f"confidence_{sid}").set_value(5).run()
+        app.text_area(key=f"explanation_{sid}").set_value("The function directly returns a literal").run()
+        app.button(key=f"record_prediction_{sid}").click().run()
+        self.assertFalse(app.exception)
+        session = app.session_state["session"]
+        self.assertEqual(session["prediction"], "Returns 42")
+        self.assertEqual(session["confidence"], 5)
+        self.assertEqual(session["explanation"], "The function directly returns a literal")
+        self.assertTrue(any(e["type"] == "diagnostic_prediction" for e in session["events"]))
+
+    def test_sandboxed_execution_captures_stdout_and_traceback(self):
+        app = self.app()
+        sid = app.session_state["session"]["id"]
+        # 1. Run clean python code
+        app.text_area(key=f"editor_{sid}").set_value("print('Hello from sandboxed runner')").run()
+        app.button(key=f"run_sandbox_{sid}").click().run()
+        self.assertFalse(app.exception)
+        session = app.session_state["session"]
+        self.assertEqual(len(session["runs"]), 1)
+        self.assertEqual(session["runs"][0]["status"], "completed")
+        self.assertIn("Hello from sandboxed runner", session["runs"][0]["stdout"])
+        self.assertIn("Hello from sandboxed runner", session["reported_output"])
+
+        # 2. Run error-raising code
+        app.text_area(key=f"editor_{sid}").set_value("print(1 / 0)").run()
+        app.button(key=f"run_sandbox_{sid}").click().run()
+        self.assertFalse(app.exception)
+        session = app.session_state["session"]
+        self.assertEqual(len(session["runs"]), 2)
+        self.assertEqual(session["runs"][1]["status"], "error")
+        self.assertIn("ZeroDivisionError", session["runs"][1]["error"])
+        self.assertIn("ZeroDivisionError", session["reported_output"])
+
+        # 3. Mark as solved
+        app.text_area(key=f"editor_{sid}").set_value("print('Fixed')").run()
+        app.button(key=f"mark_solved_{sid}").click().run()
+        self.assertFalse(app.exception)
+        self.assertEqual(app.session_state["session"]["verified_hash"], app.session_state["session"]["code_hash"])
+        self.assertEqual(app.session_state["session"]["outcome"], "solved")
+
+    def test_tiered_hints_and_challenge_probes_dispatch(self):
+        ANSWER_PROBE = json.dumps({"action": "ask_question", "message": "What did you observe at line 1?", "case_id": None, "evidence_ids": []})
+        ANSWER_MODEL = json.dumps({"action": "explain_concept", "message": "In Python, integers are immutable.", "case_id": None, "evidence_ids": []})
+        ANSWER_LOC = json.dumps({"action": "give_hint", "message": "Check the assignment to total on line 2.", "case_id": None, "evidence_ids": []})
+        ANSWER_CHALLENGE = json.dumps({"action": "give_hint", "message": "Try calling with an empty list: my_func([]).", "case_id": None, "evidence_ids": []})
+
+        with patch("tutor.Gemma.decide") as call:
+            call.side_effect = [
+                (ANSWER_PROBE, 40),
+                (ANSWER_MODEL, 45),
+                (ANSWER_LOC, 50),
+                (ANSWER_CHALLENGE, 60),
+            ]
+            app = self.app()
+            sid = app.session_state["session"]["id"]
+            app.text_area(key=f"editor_{sid}").set_value("def f(x):\n    return x\n").run()
+
+            # Tier 0 Probe
+            app.button(key=f"hint_tier0_{sid}").click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["session"]["hint_level"], 0)
+            self.assertIn("line 1", app.session_state["session"]["messages"][-1]["text"])
+
+            # Tier 1 Mental Model
+            app.button(key=f"hint_tier1_{sid}").click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["session"]["hint_level"], 1)
+            self.assertIn("immutable", app.session_state["session"]["messages"][-1]["text"])
+
+            # Tier 2 Location
+            app.button(key=f"hint_tier2_{sid}").click().run()
+            self.assertFalse(app.exception)
+            self.assertEqual(app.session_state["session"]["hint_level"], 2)
+            self.assertIn("line 2", app.session_state["session"]["messages"][-1]["text"])
+
+            # Challenge probe
+            app.button(key=f"own_challenge_{sid}").click().run()
+            self.assertFalse(app.exception)
+            self.assertIn("empty list", app.session_state["session"]["challenge_case"])

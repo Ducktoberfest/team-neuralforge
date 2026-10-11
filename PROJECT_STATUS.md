@@ -7,16 +7,21 @@
 
 ---
 
-## 0. Current update — 0.3.0, 11 October 2026
+## 0. Current update — October 2026
 
-Both tracks are unified and passing on branch `add_own_code`.
+Both tracks are unified and passing on branch `add_own_code` with **62/62 automated tests passing**.
 
-1. **Own-Code Tutoring Workspace (`workspace_ui.py`):** The primary mode allows learners to paste code in 8 languages, set a goal, report runtime output/errors with revision attribution, and engage in Socratic dialogues with concept explanations, progressive hints, and continuity notes.
-2. **7 Curated Practice Exercises (`exercises.py`):** Expanded from 5 to 7 exercises (`basket`, `largest`, `total`, `closures`, `countdown`, `shallow_copy`, `scope_leak`) with 35 curated test cases, 3 tiered hints each, anti-spoiler regexes, and interactive Stage 4 mental model transfer checks.
-3. **Pure-Python Offline Audio Engine (`sound_effects.py`):** Zero-dependency WAV audio synthesizer generating authentic rubber duck quacks, squeaks, and celebratory fanfares for prediction submits, hints, verification passes/retries, transfer reflections, and an interactive "🦆 Squeeze the Duck!" sidebar button.
-4. **Evaluation & Verification Suite:** Includes `evaluate_tutor.py` with 6 conversation scenarios and unscored rubrics (`conversation_evals.json`), alongside a unified test suite with **56 passing automated tests** across 7 test files on Python 3.14 with Streamlit.
-
-Hosted Gemma 26B (`gemma-4-26b-a4b-it`) remains the recommended default model with a 20-second timeout; 31B is supported with automatic 500 error detection and a one-click 26B recovery button. Own-code mode performs code analysis without unconstrained server execution; practice mode uses isolated local child processes or Docker.
+1. **Own-Code Tutoring Workspace Pedagogical Upgrade (`workspace_ui.py`):**
+   - **Diagnostic Prediction & Confidence Slider:** Learners can commit to a pre-run prediction (1–5 confidence rating and rationale) to sharpen their mental model before executing code.
+   - **Direct Sandboxed Execution for Python:** Interactive "Run Code in Sandbox" button executes snippets in an isolated child process with stripped environment, CPU/memory limits, capturing real standard output, return values, and tracebacks into the runtime evidence panel.
+   - **Structured 3-Tier Progressive Hints:** Added Socratic hint controls for Tier 0 (Probe), Tier 1 (Mental Model), and Tier 2 (Location), strictly enforcing a 2-request budget ceiling and anti-spoiler regexes.
+   - **Dynamic Counterexample Probes:** "Ask Duck for a Challenge Case" button prompts Gemma to devise targeted edge-case calls (empty input, negative values, boundary conditions) that learners can test directly against their function.
+   - **Revision Tracking & Bug Verification:** Changes invalidate previous passes and log `code_revision` events; "Mark as Solved" button celebrates fixes with fanfare and sets `verified_hash`.
+2. **Persistent Environment Configuration & One-Command Local Launch:**
+   - Zero-dependency `.env` loader with automatic `GEMINI_API_KEY` detection, sidebar persistence indicator, `.env.example` template, and `run.sh` launcher script.
+3. **7 Curated Practice Exercises (`exercises.py`):** 7 exercises (`basket`, `largest`, `total`, `closures`, `countdown`, `shallow_copy`, `scope_leak`) with 35 curated test cases, 3 tiered hints each, anti-spoiler regexes, and interactive Stage 4 mental model transfer checks.
+4. **Pure-Python Offline Audio Engine (`sound_effects.py`):** Zero-dependency WAV audio synthesizer generating authentic rubber duck quacks, squeaks, and celebratory fanfares for prediction submits, hints, verification passes/retries, transfer reflections, and an interactive "🦆 Squeeze the Duck!" sidebar button.
+5. **Automated Test Suite:** **62 passing automated tests** across 7 test files on Python 3.14 with Streamlit.
 
 ## 1. Overall Idea & Philosophy
 

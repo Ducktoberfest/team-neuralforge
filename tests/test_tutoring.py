@@ -142,3 +142,36 @@ class TutoringTests(unittest.TestCase):
         self.assertIn("still do not understand", model.contexts[-1]["learner_notes"])
         self.assertEqual(model.contexts[-1]["tutor_notes"][0]["text"], session["tutor_notes"][0]["text"])
         self.assertIsNone(session["verified_hash"])
+
+    def test_own_code_prediction_sandboxed_run_and_tiered_hints(self):
+        from core import guide_challenge, guide_tiered, record_own_prediction, record_own_run
+        from runner import Runner, revision
+        session = new_session()
+        record_own_prediction(session, "Outputs 5", 4, "Function adds 2 and 3")
+        self.assertEqual(session["prediction"], "Outputs 5")
+        self.assertEqual(session["confidence"], 4)
+        self.assertEqual(session["explanation"], "Function adds 2 and 3")
+
+        runner = Runner("trusted-local", allow_trusted=True, timeout=2)
+        session["code"] = "print(2 + 3)"
+        session["code_hash"] = revision(session["code"])
+        result = record_own_run(session, runner)
+        self.assertEqual(result["status"], "completed")
+        self.assertIn("5", result["stdout"])
+        self.assertEqual(len(session["runs"]), 1)
+
+        ctx = context_for(session, None, "learner_reply", ["explain_concept"], [])
+        self.assertEqual(ctx["execution_status"], "see_execution_evidence")
+        self.assertEqual(ctx["prediction"], "Outputs 5")
+        self.assertEqual(ctx["confidence"], 4)
+
+        model = SequenceModel(
+            reply("explain_concept", "The addition operator produces a new integer."),
+            reply("give_hint", "Try with negative numbers: add(-1, 1).")
+        )
+        guide_tiered(session, model, tier=1)
+        self.assertEqual(session["hint_level"], 1)
+        self.assertEqual(session["messages"][-1]["text"], "The addition operator produces a new integer.")
+
+        guide_challenge(session, model)
+        self.assertEqual(session["challenge_case"], "Try with negative numbers: add(-1, 1).")
