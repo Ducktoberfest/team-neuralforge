@@ -22,6 +22,7 @@ Both tracks are unified and passing on branch `add_own_code` with **62/62 automa
 3. **7 Curated Practice Exercises (`exercises.py`):** 7 exercises (`basket`, `largest`, `total`, `closures`, `countdown`, `shallow_copy`, `scope_leak`) with 35 curated test cases, 3 tiered hints each, anti-spoiler regexes, and interactive Stage 4 mental model transfer checks.
 4. **Pure-Python Offline Audio Engine (`sound_effects.py`):** Zero-dependency WAV audio synthesizer generating authentic rubber duck quacks, squeaks, and celebratory fanfares for prediction submits, hints, verification passes/retries, transfer reflections, and an interactive "🦆 Squeeze the Duck!" sidebar button.
 5. **Automated Test Suite:** **62 passing automated tests** across 7 test files on Python 3.14 with Streamlit.
+6. **DuckTutor VS Code Extension (`ducktutor-extension/`):** Native VS Code extension merged from `origin/vscode_extension` featuring an Activity Bar webview container, status bar integration, editor context menu for Python debugging, TypeScript compilation & esbuild bundling, and core test suite passing.
 
 ## 1. Overall Idea & Philosophy
 
