@@ -1,0 +1,367 @@
+import { Exercise } from './types';
+
+export const BASKET: Exercise = {
+  id: 'basket',
+  title: 'The basket that remembers',
+  concept: 'Shared mutable state',
+  spec: 'add_item adds an item to a basket. When no basket is supplied (or it is None), each call must create a fresh list. A supplied list, including an empty one, must be modified and returned as the same object. Items are strings.',
+  starter: 'def add_item(item, items=[]):\n    items.append(item)\n    return items\n',
+  entrypoint: 'add_item',
+  predictionCode: 'print(add_item("apple"))\nprint(add_item("banana"))',
+  choices: ['["banana"]', '["apple", "banana"]', '[]', "I'm not sure"],
+  prediction: {
+    id: 'prediction',
+    title: 'Second independent call',
+    purpose: 'Observe the second printed value',
+    script: 'fn("apple")\nactual = list(fn("banana"))',
+    expected: ['banana'],
+  },
+  cases: [
+    {
+      id: 'fresh_repeat',
+      title: 'Independent calls',
+      purpose: 'Two omitted baskets must be separate lists',
+      script: 'a = fn("apple")\nfirst = list(a)\nb = fn("banana")\nactual = {"first": first, "second": list(b), "same_object": a is b}',
+      expected: { first: ['apple'], second: ['banana'], same_object: false },
+    },
+    {
+      id: 'provided_empty',
+      title: 'Caller supplies an empty basket',
+      purpose: "Preserve the caller's empty list",
+      script: 'basket = []\nout = fn("pear", basket)\nactual = {"returned": out, "basket": basket, "same_object": out is basket}',
+      expected: { returned: ['pear'], basket: ['pear'], same_object: true },
+    },
+    {
+      id: 'provided_nonempty',
+      title: 'Caller supplies a filled basket',
+      purpose: 'Modify and return the supplied list',
+      script: 'basket = ["kiwi"]\nout = fn("pear", basket)\nactual = {"returned": out, "basket": basket, "same_object": out is basket}',
+      expected: { returned: ['kiwi', 'pear'], basket: ['kiwi', 'pear'], same_object: true },
+    },
+    {
+      id: 'explicit_none',
+      title: 'Explicit None',
+      purpose: 'None also means a fresh basket',
+      script: 'actual = fn("plum", None)',
+      expected: ['plum'],
+    },
+    {
+      id: 'later_mutation',
+      title: 'Mutate an earlier basket',
+      purpose: 'Later baskets must not inherit earlier mutations',
+      script: 'a = fn("apple")\na.append("kiwi")\nactual = fn("banana")',
+      expected: ['banana'],
+    },
+  ],
+  solution: 'def add_item(item, items=None):\n    if items is None:\n        items = []\n    items.append(item)\n    return items\n',
+  explanation: 'A default list is created when the function is defined and reused across omitted arguments. None can represent an omitted basket. Checking identity with None preserves an explicitly supplied empty list; a truthiness check would replace it.',
+  hints: [
+    'Which part of the second output came from the earlier call?',
+    'When is a function\'s default value created, and how long can that object survive?',
+    'How does your condition distinguish a missing basket from a supplied empty basket?',
+  ],
+  forbidden: ['items\\s*is\\s*None', 'items\\s*=\\s*\\[\\]', 'default\\s+parameter'],
+  reflection: {
+    transferSnippet: 'first = [1]\nsecond = first\nsecond.append(2)\nprint(first)',
+    transferPrompt: 'What will this code print?',
+    transferChoices: ['[1]', '[1, 2]', '[2]', 'Error'],
+    correctChoiceIndex: 1,
+    explanation: 'Both "first" and "second" refer to the exact same list in memory. Mutating the list via "second" directly affects "first", just as a default mutable argument is shared across independent function calls.',
+  },
+};
+
+export const LARGEST: Exercise = {
+  id: 'largest',
+  title: "The largest number that isn't there",
+  concept: 'Initialization and input coverage',
+  spec: 'largest returns the greatest integer in a list. An empty list must raise ValueError.',
+  starter: 'def largest(numbers):\n    best = 0\n    for number in numbers:\n        if number > best:\n            best = number\n    return best\n',
+  entrypoint: 'largest',
+  predictionCode: 'print(largest([-8, -3, -11]))',
+  choices: ['-3', '0', '-11', "I'm not sure"],
+  prediction: {
+    id: 'prediction',
+    title: 'All-negative input',
+    purpose: 'Observe the returned value',
+    script: 'actual = fn([-8, -3, -11])',
+    expected: -3,
+  },
+  cases: [
+    {
+      id: 'positive',
+      title: 'Positive values',
+      purpose: 'Basic comparison',
+      script: 'actual = fn([2, 9, 4])',
+      expected: 9,
+    },
+    {
+      id: 'negative',
+      title: 'All-negative values',
+      purpose: 'The result must come from the input',
+      script: 'actual = fn([-8, -3, -11])',
+      expected: -3,
+    },
+    {
+      id: 'single',
+      title: 'One negative value',
+      purpose: 'One-element boundary',
+      script: 'actual = fn([-7])',
+      expected: -7,
+    },
+    {
+      id: 'empty',
+      title: 'Empty input',
+      purpose: 'Required error behavior',
+      script: 'try:\n    actual = {"returned": fn([])}\nexcept ValueError:\n    actual = {"error": "ValueError"}',
+      expected: { error: 'ValueError' },
+    },
+    {
+      id: 'mixed',
+      title: 'Mixed values and duplicates',
+      purpose: 'Ordinary mixed input',
+      script: 'actual = fn([-4, 0, 6, 6, 2])',
+      expected: 6,
+    },
+  ],
+  solution: 'def largest(numbers):\n    if not numbers:\n        raise ValueError(\'An empty list has no largest value\')\n    best = numbers[0]\n    for number in numbers[1:]:\n        if number > best:\n            best = number\n    return best\n',
+  explanation: 'An initial candidate must be justified by the input. Handle the empty case explicitly before choosing an element.',
+  hints: [
+    'Is the returned value present in the input?',
+    'What assumption is made by the initial candidate?',
+    'Consider the initial candidate and the separate empty-input requirement.',
+  ],
+  forbidden: ['numbers\\[0\\]', 'float\\(\'-inf\'\\)', 'raise\\s+ValueError'],
+  reflection: {
+    transferSnippet: 'def find_minimum(numbers):\n    lowest = 100\n    for n in numbers:\n        if n < lowest:\n            lowest = n\n    return lowest\n\nprint(find_minimum([120, 150, 200]))',
+    transferPrompt: 'What does find_minimum([120, 150, 200]) return?',
+    transferChoices: ['120', '100', '150', 'ValueError'],
+    correctChoiceIndex: 1,
+    explanation: 'Because "lowest" was arbitrarily initialized to 100, if all numbers in the input exceed 100, the function returns 100 even though 100 was not in the input. An initial candidate must be drawn directly from the input data (e.g. numbers[0]).',
+  },
+};
+
+export const TOTAL: Exercise = {
+  id: 'total',
+  title: 'The disappearing last number',
+  concept: 'Exclusive loop boundaries',
+  spec: 'total returns the sum of every integer in a list. It returns zero for an empty list.',
+  starter: 'def total(numbers):\n    result = 0\n    for i in range(len(numbers) - 1):\n        result += numbers[i]\n    return result\n',
+  entrypoint: 'total',
+  predictionCode: 'print(total([2, 3, 4]))',
+  choices: ['9', '5', '4', "I'm not sure"],
+  prediction: {
+    id: 'prediction',
+    title: 'Three integers',
+    purpose: 'Observe the returned total',
+    script: 'actual = fn([2, 3, 4])',
+    expected: 9,
+  },
+  cases: [
+    {
+      id: 'ordinary',
+      title: 'Three integers',
+      purpose: 'Include every position',
+      script: 'actual = fn([2, 3, 4])',
+      expected: 9,
+    },
+    {
+      id: 'single',
+      title: 'One integer',
+      purpose: 'Smallest nonempty list',
+      script: 'actual = fn([7])',
+      expected: 7,
+    },
+    {
+      id: 'empty',
+      title: 'Empty input',
+      purpose: 'Defined empty sum',
+      script: 'actual = fn([])',
+      expected: 0,
+    },
+    {
+      id: 'negative',
+      title: 'Negative integers',
+      purpose: 'Signed values',
+      script: 'actual = fn([-2, -3])',
+      expected: -5,
+    },
+    {
+      id: 'ending_zero',
+      title: 'Last element is zero',
+      purpose: 'A value can conceal a missing position',
+      script: 'actual = fn([2, 3, 0])',
+      expected: 5,
+    },
+  ],
+  solution: 'def total(numbers):\n    result = 0\n    for number in numbers:\n        result += number\n    return result\n',
+  explanation: 'The original range stops before the final valid index. Iterating directly over values includes every element.',
+  hints: [
+    'Which input values contributed to the observed total?',
+    'Which indices does this range actually produce?',
+    'Compare the last index the loop visits with the last valid index of the list.',
+  ],
+  forbidden: ['for\\s+number\\s+in\\s+numbers', 'range\\(len\\(numbers\\)\\)'],
+  reflection: {
+    transferSnippet: 'chars = [\'a\', \'b\', \'c\', \'d\']\nresult = \'\'\nfor i in range(len(chars) - 1):\n    result += chars[i]\nprint(result)',
+    transferPrompt: 'What will this code print?',
+    transferChoices: ['abcd', 'abc', 'bcd', 'ab'],
+    correctChoiceIndex: 1,
+    explanation: 'range(len(chars) - 1) produces indices 0, 1, and 2, completely omitting index 3 ("d"). In Python, range(stop) is exclusive of stop, so range(n - 1) iterates n - 1 times, stopping before the final element just as in the total exercise.',
+  },
+};
+
+export const CLOSURES: Exercise = {
+  id: 'closures',
+  title: 'The functions that forgot their numbers',
+  concept: 'Late binding in closures',
+  spec: 'make_multipliers returns a list of n functions where the k-th function multiplies its argument by k: funcs[k](x) == x * k for 0 <= k < n. For n <= 0, it returns an empty list.',
+  starter: 'def make_multipliers(n):\n    funcs = []\n    for i in range(n):\n        funcs.append(lambda x: x * i)\n    return funcs\n',
+  entrypoint: 'make_multipliers',
+  predictionCode: 'funcs = make_multipliers(3)\nprint([f(10) for f in funcs])',
+  choices: ['[0, 10, 20]', '[20, 20, 20]', '[0, 0, 0]', "I'm not sure"],
+  prediction: {
+    id: 'prediction',
+    title: 'Three multipliers called with 10',
+    purpose: 'Observe that all returned functions share the final loop variable',
+    script: 'funcs = fn(3)\nactual = [f(10) for f in funcs]',
+    expected: [0, 10, 20],
+  },
+  cases: [
+    {
+      id: 'three_functions',
+      title: 'Three functions with varied inputs',
+      purpose: 'Verify each index multiplies by its position',
+      script: 'funcs = fn(3)\nactual = [funcs[0](5), funcs[1](5), funcs[2](5)]',
+      expected: [0, 5, 10],
+    },
+    {
+      id: 'single_function',
+      title: 'Single function (n=1)',
+      purpose: 'Boundary check for n=1',
+      script: 'funcs = fn(1)\nactual = [funcs[0](7)]',
+      expected: [0],
+    },
+    {
+      id: 'empty',
+      title: 'Zero functions (n=0)',
+      purpose: 'Empty list when n is 0',
+      script: 'actual = fn(0)',
+      expected: [],
+    },
+    {
+      id: 'negative_n',
+      title: 'Negative n (n=-2)',
+      purpose: 'Empty list for negative n',
+      script: 'actual = fn(-2)',
+      expected: [],
+    },
+    {
+      id: 'trap_repeated_calls',
+      title: 'Four functions with varied inputs',
+      purpose: 'Independent calls with different arguments',
+      script: 'funcs = fn(4)\nactual = [funcs[3](2), funcs[2](3), funcs[1](10), funcs[0](99)]',
+      expected: [6, 6, 10, 0],
+    },
+  ],
+  solution: 'def make_multipliers(n):\n    funcs = []\n    for i in range(n):\n        funcs.append(lambda x, i=i: x * i)\n    return funcs\n',
+  explanation: 'Python closures look up variables by name when the function is called, not when it is defined. By the time any multiplier runs, "i" equals n - 1. Binding "i=i" as a default argument captures the current loop value at definition time.',
+  hints: [
+    'When does the multiplication actually occur: when make_multipliers runs, or when the returned function is called?',
+    'What is the value of "i" in the surrounding scope after the loop completes?',
+    'How can you bind the current loop value of "i" into each function\'s default arguments at creation time?',
+  ],
+  forbidden: ['\\bi\\s*=\\s*i\\b', '\\bdefault\\s+(argument|parameter)', '\\blate\\s+binding\\b'],
+  reflection: {
+    transferSnippet: 'actions = []\nfor word in [\'hello\', \'world\']:\n    actions.append(lambda: word)\n\nprint([act() for act in actions])',
+    transferPrompt: 'What will [act() for act in actions] evaluate to?',
+    transferChoices: ['[\'hello\', \'world\']', '[\'world\', \'world\']', '[\'hello\', \'hello\']', 'Error'],
+    correctChoiceIndex: 1,
+    explanation: 'In Python, closures bind variables by name, not value. When the lambdas are executed, the loop has finished and "word" refers to its final bound value "world". To capture the current value at definition time, bind it as a default parameter (lambda w=word: w).',
+  },
+};
+
+export const COUNTDOWN: Exercise = {
+  id: 'countdown',
+  title: 'The countdown that stops too soon',
+  concept: 'Recursion base cases and boundary conditions',
+  spec: 'countdown returns a list of integers counting down from n to 0 inclusive. For negative n, it must return an empty list.',
+  starter: 'def countdown(n):\n    if n <= 1:\n        return [1]\n    return [n] + countdown(n - 1)\n',
+  entrypoint: 'countdown',
+  predictionCode: 'print(countdown(3))',
+  choices: ['[3, 2, 1, 0]', '[3, 2, 1]', '[1]', "I'm not sure"],
+  prediction: {
+    id: 'prediction',
+    title: 'Countdown from 3',
+    purpose: 'Observe where the recursive descent stops',
+    script: 'actual = fn(3)',
+    expected: [3, 2, 1, 0],
+  },
+  cases: [
+    {
+      id: 'positive',
+      title: 'Countdown from 4',
+      purpose: 'Normal recursion down to 0',
+      script: 'actual = fn(4)',
+      expected: [4, 3, 2, 1, 0],
+    },
+    {
+      id: 'zero',
+      title: 'Countdown from 0',
+      purpose: 'Zero boundary must include 0',
+      script: 'actual = fn(0)',
+      expected: [0],
+    },
+    {
+      id: 'single',
+      title: 'Countdown from 1',
+      purpose: 'Countdown from 1 must include 1 and 0',
+      script: 'actual = fn(1)',
+      expected: [1, 0],
+    },
+    {
+      id: 'negative',
+      title: 'Negative input (n=-3)',
+      purpose: 'Negative inputs must return an empty list',
+      script: 'actual = fn(-3)',
+      expected: [],
+    },
+    {
+      id: 'trap_large',
+      title: 'Countdown from 10',
+      purpose: 'Larger input verifying full chain down to 0',
+      script: 'actual = fn(10)',
+      expected: [10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0],
+    },
+  ],
+  solution: 'def countdown(n):\n    if n < 0:\n        return []\n    if n == 0:\n        return [0]\n    return [n] + countdown(n - 1)\n',
+  explanation: 'The base case n <= 1 stopped the countdown at 1 instead of reaching 0, and incorrectly returned [1] for zero and negative inputs. Separating negative inputs (empty list) and the zero base case ([0]) correctly terminates the recursive descent.',
+  hints: [
+    'Which values are present in the observed output, and which required stopping value is missing?',
+    'What does the starter code return when called with 0 or a negative number?',
+    'How can you separate the negative input guard from the zero base case?',
+  ],
+  forbidden: ['\\bn\\s*<\\s*0\\b', '\\bn\\s*==\\s*0\\b', '\\breturn\\s*\\[0\\]'],
+  reflection: {
+    transferSnippet: 'def count_down_strings(n):\n    if n == 1:\n        return [\'blastoff!\']\n    return [str(n)] + count_down_strings(n - 1)\n\nprint(count_down_strings(3))',
+    transferPrompt: 'What will count_down_strings(3) return?',
+    transferChoices: ['[\'3\', \'2\', \'1\', \'blastoff!\']', '[\'3\', \'2\', \'blastoff!\']', '[\'3\', \'blastoff!\']', '[\'blastoff!\']'],
+    correctChoiceIndex: 1,
+    explanation: 'The base case terminates at n == 1 without prepending "1" to the resulting list, omitting 1 from the countdown descent. The recursion must continue down to 0 before returning the terminal marker, just like the countdown exercise omitted 0.',
+  },
+};
+
+export const EXERCISES: Record<string, Exercise> = {
+  basket: BASKET,
+  largest: LARGEST,
+  total: TOTAL,
+  closures: CLOSURES,
+  countdown: COUNTDOWN,
+};
+
+export function getExercise(id: string): Exercise {
+  const ex = EXERCISES[id];
+  if (!ex) {
+    throw new Error(`Exercise not found: ${id}`);
+  }
+  return ex;
+}
