@@ -36,6 +36,8 @@ def sync_code(session, code):
         return False
     session.update(code=code, code_hash=revision(code), verified_hash=None,
                    outcome="in_progress", stage="guide")
+    if "learner_code" in session:
+        session["learner_code"] = code
     return True
 
 
@@ -200,3 +202,88 @@ def load_notebook(directory):
         except (ValueError, OSError, AttributeError):
             continue
     return records[:100]
+
+
+def list_saved_sessions(directory=None):
+    """Safely inspect directory/*.json and return metadata list."""
+    folder = Path(directory or os.environ.get("DATA_DIR", Path(__file__).parent / "data"))
+    if not folder.exists():
+        return []
+    items = []
+    for path in sorted(folder.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        try:
+            entry = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(entry, dict) and entry.get("schema_version") == 1 and "id" in entry:
+                items.append({
+                    "id": entry["id"],
+                    "exercise_id": entry.get("exercise_id"),
+                    "concept": entry.get("concept", entry.get("exercise_id")),
+                    "stage": entry.get("stage", "predict"),
+                    "started_at": entry.get("started_at"),
+                    "updated_at": entry.get("updated_at"),
+                    "code_hash": entry.get("code_hash"),
+                    "outcome": entry.get("outcome", "in_progress"),
+                })
+        except (ValueError, OSError, AttributeError):
+            continue
+    return items[:100]
+
+
+def load_session(session_id, directory=None):
+    """Read data/<session_id>.json and return a fully restored session dict."""
+    if not session_id or not isinstance(session_id, str):
+        return None
+    folder = Path(directory or os.environ.get("DATA_DIR", Path(__file__).parent / "data"))
+    path = folder / f"{session_id}.json"
+    if not path.exists():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, OSError):
+        return None
+
+    if not isinstance(data, dict) or data.get("schema_version") != 1 or "id" not in data:
+        return None
+
+    code = data.get("code", "")
+    code_hash = revision(code)
+    verified = data.get("verified_hash")
+    # Invariant: verified_hash is only valid if it matches the current code hash
+    verified_hash = verified if verified == code_hash else None
+
+    session = {
+        "schema_version": 1,
+        "id": data["id"],
+        "exercise_id": data.get("exercise_id"),
+        "exercise_version": data.get("exercise_version", 1),
+        "concept": data.get("concept", ""),
+        "started_at": data.get("started_at", now()),
+        "updated_at": data.get("updated_at", now()),
+        "stage": data.get("stage", "predict"),
+        "code": code,
+        "learner_code": code,
+        "code_hash": code_hash,
+        "verified_hash": verified_hash,
+        "prediction": data.get("prediction"),
+        "confidence": data.get("confidence"),
+        "explanation": data.get("explanation", ""),
+        "learner_explanation": data.get("explanation", ""),
+        "initial_observation": data.get("initial_observation"),
+        "prediction_matches_execution": data.get("prediction_matches_execution"),
+        "messages": list(data.get("messages", [])),
+        "runs": list(data.get("runs", [])),
+        "events": list(data.get("events", [])),
+        "attempts": data.get("attempts", 0),
+        "hint_level": data.get("hint_level", 0),
+        "hint_count": data.get("hint_count", 0),
+        "solution_viewed": bool(data.get("solution_viewed", False)),
+        "solution_revealed": bool(data.get("solution_viewed", False)),
+        "outcome": data.get("outcome", "in_progress"),
+        "model_calls": data.get("model_calls", 0),
+        "model_unavailable_events": data.get("model_unavailable_events", 0),
+        "followup_status": data.get("followup_status", "not_attempted"),
+        "followup_answer": data.get("followup_answer"),
+        "reflection_response": data.get("followup_answer"),
+    }
+    return session
+

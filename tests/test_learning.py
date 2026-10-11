@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from core import (check_correction, guide, load_notebook, new_session, predict,
-                  reveal, save_notebook, sync_code)
+from core import (check_correction, guide, list_saved_sessions, load_notebook,
+                  load_session, new_session, predict, reveal, save_notebook, sync_code)
 from exercises import BASKET, EXERCISES
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
@@ -157,6 +157,51 @@ class LearningTests(unittest.TestCase):
         self.assertEqual(ctx["hint_level"], 1)
         self.assertEqual(ctx["confidence"], 1)
         self.assertEqual(ctx["recent_messages"][-1]["text"], "Does the list survive?")
+
+    def test_session_save_and_hydration_restores_state_and_invalidates_hash(self):
+        session = new_session(BASKET)
+        predict(session, BASKET, self.runner, self.model, '["banana"]', 5, "Shared default argument")
+        sync_code(session, BASKET.solution)
+        check_correction(session, BASKET, self.runner, self.model)
+        self.assertEqual(session["verified_hash"], session["code_hash"])
+        self.assertEqual(session["stage"], "reflect")
+
+        with tempfile.TemporaryDirectory() as directory:
+            save_notebook(session, directory)
+
+            saved_list = list_saved_sessions(directory)
+            self.assertEqual(len(saved_list), 1)
+            self.assertEqual(saved_list[0]["id"], session["id"])
+            self.assertEqual(saved_list[0]["exercise_id"], "basket")
+
+            loaded = load_session(session["id"], directory)
+            self.assertIsNotNone(loaded)
+            self.assertEqual(loaded["id"], session["id"])
+            self.assertEqual(loaded["exercise_id"], "basket")
+            self.assertEqual(loaded["stage"], "reflect")
+            self.assertEqual(loaded["code"], session["code"])
+            self.assertEqual(loaded["learner_code"], session["code"])
+            self.assertEqual(loaded["code_hash"], session["code_hash"])
+            self.assertEqual(loaded["verified_hash"], session["code_hash"])
+            self.assertEqual(loaded["prediction"], '["banana"]')
+            self.assertEqual(loaded["confidence"], 5)
+            self.assertEqual(loaded["explanation"], "Shared default argument")
+            self.assertEqual(len(loaded["runs"]), len(session["runs"]))
+            self.assertEqual(len(loaded["messages"]), len(session["messages"]))
+            self.assertEqual(loaded["solution_viewed"], False)
+
+            modified_code = loaded["code"] + "\n# whitespace or comment change\n"
+            changed = sync_code(loaded, modified_code)
+            self.assertTrue(changed)
+            self.assertEqual(loaded["code"], modified_code)
+            self.assertEqual(loaded["learner_code"], modified_code)
+            self.assertIsNone(loaded["verified_hash"])
+            self.assertEqual(loaded["outcome"], "in_progress")
+
+            self.assertIsNone(load_session("nonexistent-uuid", directory))
+            corrupt_file = Path(directory) / "corrupt.json"
+            corrupt_file.write_text("invalid json")
+            self.assertIsNone(load_session("corrupt", directory))
 
 
 if __name__ == "__main__":

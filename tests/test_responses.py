@@ -99,6 +99,60 @@ class ResponseTests(unittest.TestCase):
         self.assertEqual(model.last_response_info["finish_reason"], "MAX_TOKENS")
         self.assertNotIn("test-key", json.dumps(model.last_response_info))
 
+    def test_context_window_pruning_preserves_invariants_and_caps_history(self):
+        for i in range(20):
+            role = "user" if i % 2 == 0 else "assistant"
+            self.session["messages"].append({"role": role, "text": f"Message {i}", "source": "test"})
+        for i in range(15):
+            self.session["runs"].append({
+                "id": f"run_{i}", "case_id": f"case_{i}", "code_hash": self.session["code_hash"],
+                "actual": i, "expected": i, "status": "completed", "passed": True, "error": None
+            })
+        self.session["prediction"] = '["banana"]'
+        self.session["confidence"] = 5
+        self.session["explanation"] = "Default basket is reused across calls."
+
+        ctx = context_for(self.session, BASKET, "test", ["ask_question"], [])
+
+        self.assertEqual(ctx["specification"], BASKET.spec)
+        self.assertEqual(ctx["prediction"], '["banana"]')
+        self.assertEqual(ctx["confidence"], 5)
+        self.assertEqual(ctx["learner_explanation"], "Default basket is reused across calls.")
+        self.assertEqual(ctx["current_code"], self.session["code"])
+        self.assertEqual(ctx["code_hash"], self.session["code_hash"])
+        self.assertLessEqual(len(ctx["recent_messages"]), 8)
+        self.assertEqual(ctx["recent_messages"][-1]["text"], "Message 19")
+        self.assertLessEqual(len(ctx["evidence"]), 6)
+        self.assertEqual(ctx["evidence"][-1]["id"], "run_14")
+
+    def test_http_500_maps_to_suggested_fallback(self):
+        from urllib.error import HTTPError
+        model = Gemma(key="test-key", model="gemma-4-31b-it")
+        exc = HTTPError("http://test", 500, "Internal Server Error", {}, BytesIO(b"{}"))
+        with patch("tutor.request.urlopen", side_effect=exc):
+            with self.assertRaises(ModelError) as cm:
+                model.decide(self.context)
+            self.assertIn("500", str(cm.exception))
+            self.assertIn("gemma-4-26b-a4b-it", str(cm.exception))
+
+            decide(self.session, BASKET, model, "test", ["ask_question"])
+            self.assertEqual(self.session["messages"][-1]["source"], "Exercise hint · live Gemma unavailable")
+            self.assertEqual(self.session["model_unavailable_events"], 1)
+            self.assertIn("500", self.session["events"][-1]["error"])
+            self.assertIn("gemma-4-26b-a4b-it", self.session["events"][-1]["error"])
+
+    def test_timeout_maps_to_graceful_fallback(self):
+        model = Gemma(key="test-key")
+        with patch("tutor.request.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaises(ModelError) as cm:
+                model.decide(self.context)
+            self.assertIn("timed out", str(cm.exception))
+
+            decide(self.session, BASKET, model, "test", ["ask_question"])
+            self.assertEqual(self.session["messages"][-1]["source"], "Exercise hint · live Gemma unavailable")
+            self.assertEqual(self.session["model_unavailable_events"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -15,7 +15,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trusted-local", action="store_true", help="Run the bundled reviewed example in a local child process (not a sandbox).")
     parser.add_argument("--provider", choices=["google", "ollama"], default="google")
-    parser.add_argument("--model", default="gemma-4-26b-a4b-it")
+    parser.add_argument("--model", default="gemma-4-26b-a4b-it",
+                        help="Gemma model to use (default: gemma-4-26b-a4b-it)")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434")
     args = parser.parse_args()
     key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")

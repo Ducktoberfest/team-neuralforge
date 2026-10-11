@@ -5,8 +5,8 @@ from pathlib import Path
 
 import streamlit as st
 
-from core import (check_correction, guide, load_notebook, new_session, predict,
-                  reveal, save_notebook, sync_code)
+from core import (check_correction, guide, list_saved_sessions, load_notebook,
+                  load_session, new_session, predict, reveal, save_notebook, sync_code)
 from exercises import EXERCISES
 from runner import Runner
 from tutor import Gemma, ModelError, context_for, parse_decision
@@ -36,6 +36,8 @@ def persist(session):
 with st.sidebar:
     st.markdown("## 🦆 DuckTutor")
     st.caption("A small question. A better understanding.")
+    if "_pending_exercise" in st.session_state:
+        st.session_state["exercise_select"] = st.session_state.pop("_pending_exercise")
     chosen = st.selectbox("Exercise", list(EXERCISES), format_func=lambda k: EXERCISES[k].title,
                           key="exercise_select")
     exercise = EXERCISES[chosen]
@@ -51,7 +53,8 @@ with st.sidebar:
         provider = st.selectbox("Model provider", ["google", "ollama"],
                                 format_func=lambda x: "Hosted Gemma" if x == "google" else "Local Ollama")
         if provider == "google":
-            model_name = st.selectbox("Gemma model", ["gemma-4-26b-a4b-it", "gemma-4-31b-it"])
+            model_name = st.selectbox("Gemma model", ["gemma-4-26b-a4b-it", "gemma-4-31b-it"],
+                                      index=0, help="gemma-4-26b-a4b-it is the recommended default model.")
             key = st.text_input("Google AI Studio API key", type="password", key="api_key",
                                 help="Optional when GEMINI_API_KEY is set. Kept in this browser session, never in the notebook.")
             endpoint = "http://127.0.0.1:11434"
@@ -87,6 +90,22 @@ with st.sidebar:
     st.divider()
     st.caption("Prototype · Python exercises · one local learner")
     st.caption("Gemma guides. Python checks. You make the edit.")
+    saved_sessions = list_saved_sessions(DATA_DIR)
+    if saved_sessions:
+        with st.expander("Resume saved session"):
+            session_opts = {
+                s["id"]: f"{EXERCISES[s['exercise_id']].title if s.get('exercise_id') in EXERCISES else s.get('exercise_id')} · {s.get('updated_at', '')[:16]}"
+                for s in saved_sessions
+            }
+            chosen_sid = st.selectbox("Select saved session", list(session_opts.keys()),
+                                      format_func=lambda sid: session_opts[sid],
+                                      key="resume_session_select")
+            if st.button("Load Session", key="load_session_btn", use_container_width=True):
+                loaded = load_session(chosen_sid, DATA_DIR)
+                if loaded:
+                    st.session_state["session"] = loaded
+                    st.session_state["_pending_exercise"] = loaded["exercise_id"]
+                    st.rerun()
 
 session = st.session_state.session
 sid = session["id"]
@@ -264,3 +283,10 @@ with notebook:
             st.write(f'Outcome: {entry.get("outcome", "in_progress").replace("_", " ")}')
             st.caption(f'Solution viewed: {entry.get("solution_viewed", False)} · Follow-up: {entry.get("followup_status", "not_attempted")}')
             st.caption(f'Validated live model decisions: {entry.get("model_calls", 0)} · Model unavailable/invalid responses: {entry.get("model_unavailable_events", 0)}')
+            if entry["id"] != sid:
+                if st.button("Resume this session", key=f"resume_{entry['id']}", use_container_width=True):
+                    loaded = load_session(entry["id"], DATA_DIR)
+                    if loaded:
+                        st.session_state["session"] = loaded
+                        st.session_state["_pending_exercise"] = loaded["exercise_id"]
+                        st.rerun()
