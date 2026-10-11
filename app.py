@@ -15,90 +15,251 @@ def inject_custom_styles():
     st.markdown("""<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
-/* Typography & Base Layout */
-html, body, [data-testid="stAppViewContainer"], .stApp {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+/* Universal Dark Canvas */
+.stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
 .block-container {
     max-width: 1280px;
-    padding-top: 1.5rem;
-    padding-bottom: 3rem;
+    padding-top: 1rem !important;
+    padding-bottom: 2rem !important;
 }
 
-h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    letter-spacing: -0.035em;
-    font-weight: 600;
+/* Sidebar Styling */
+section[data-testid="stSidebar"], [data-testid="stSidebarContent"] {
+    background-color: #010409 !important;
+    border-right: 1px solid #21262d !important;
+}
+section[data-testid="stSidebar"] * {
+    color: #c9d1d9 !important;
+}
+section[data-testid="stSidebar"] .stButton button:hover {
+    color: #ffffff !important;
 }
 
-/* Monospace: Code blocks, editor inputs, preformatted text */
-code, pre, pre code, .stCode, textarea[aria-label="Python editor"], .stTextArea textarea, .duck-mono {
-    font-family: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace !important;
+/* Typography Hierarchy & Contrast */
+h1, h2, h3, h4 {
+    color: #f0f6fc !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.02em !important;
+}
+p, span, label, .stMarkdown {
+    color: #c9d1d9 !important;
 }
 
-/* Editor & Textarea styling */
-textarea[aria-label="Python editor"], .stTextArea textarea {
+/* Compact Hero Title & Container Spacing */
+.stApp h1 {
+    font-size: 1.65rem !important;
+    margin-top: 0 !important;
+    margin-bottom: 0.2rem !important;
+    padding-top: 0 !important;
+    line-height: 1.25 !important;
+}
+
+.eyebrow {
+    color: #8b949e !important;
+    font-size: 11px !important;
+    letter-spacing: 0.12em !important;
+    font-weight: 700 !important;
+    margin-bottom: 2px !important;
+}
+
+.hero-note {
+    color: #8b949e !important;
+    font-size: 14.5px !important;
+    margin-bottom: 12px !important;
+}
+
+/* Top Navigation Header Bar */
+.duck-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    margin-bottom: 14px;
+}
+.duck-header-left, .duck-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.duck-logo { font-size: 1.2rem; }
+.duck-title { font-weight: 700; color: #58a6ff; font-size: 1.05rem; }
+.duck-edition { background: #238636; color: #ffffff; padding: 2px 8px; border-radius: 12px; font-size: 0.75rem; font-weight: 600; margin-left: 8px; }
+.duck-team { color: #8b949e; font-size: 0.82rem; }
+.duck-version { color: #7ee787; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; margin-left: 8px; }
+
+/* Code Display Cards */
+pre, code, [data-testid="stCodeBlock"] {
     font-family: 'JetBrains Mono', monospace !important;
-    font-size: 13.5px !important;
+    background-color: #161b22 !important;
     border: 1px solid #30363d !important;
-    line-height: 1.55 !important;
-    tab-size: 4 !important;
-    background-color: #0d1117 !important;
-    color: #e6edf3 !important;
-    border-radius: 8px !important;
+    border-radius: 6px !important;
+    color: #79c0ff !important;
 }
 
-textarea[aria-label="Python editor"]:focus, .stTextArea textarea:focus {
+/* Textarea & Input Contrast */
+.stTextArea textarea, textarea[aria-label="Python editor"] {
+    font-family: 'JetBrains Mono', monospace !important;
+    background-color: #161b22 !important;
+    color: #f0f6fc !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    line-height: 1.55 !important;
+}
+.stTextArea textarea::placeholder {
+    color: #6e7681 !important;
+}
+.stTextArea textarea:focus {
     border-color: #58a6ff !important;
     box-shadow: 0 0 0 1px #58a6ff !important;
 }
 
-/* Code blocks */
-div[data-testid="stCodeBlock"] {
+.stTextInput input {
+    font-family: 'JetBrains Mono', monospace !important;
+    background-color: #161b22 !important;
+    color: #f0f6fc !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+}
+.stTextInput input:focus {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 1px #58a6ff !important;
+}
+
+/* Radio & Input Controls */
+div[role="radiogroup"] label {
+    background: #161b22 !important;
+    padding: 6px 12px !important;
+    border-radius: 6px !important;
+    border: 1px solid #21262d !important;
+    margin-bottom: 4px !important;
+    display: flex !important;
+    align-items: center !important;
+    transition: border-color 0.15s ease !important;
+    color: #c9d1d9 !important;
+}
+div[role="radiogroup"] label:hover {
+    border-color: #388bfd !important;
+}
+
+/* Buttons */
+.stButton button {
+    background-color: #21262d !important;
+    color: #c9d1d9 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    font-weight: 500 !important;
+    transition: all 0.15s ease !important;
+}
+.stButton button:hover {
+    background-color: #30363d !important;
+    color: #ffffff !important;
+    border-color: #8b949e !important;
+}
+.stButton button[kind="primary"], .stFormSubmitButton button[kind="primary"], button[data-testid="baseButton-primary"] {
+    background-color: #238636 !important;
+    color: #ffffff !important;
+    border-color: rgba(240, 246, 252, 0.1) !important;
+}
+.stButton button[kind="primary"]:hover, .stFormSubmitButton button[kind="primary"]:hover, button[data-testid="baseButton-primary"]:hover {
+    background-color: #2ea043 !important;
+    border-color: rgba(240, 246, 252, 0.2) !important;
+}
+
+/* Form Container & Diagnostic Probe Dark Card */
+div[data-testid="stForm"] {
+    background-color: #161b22 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 8px !important;
+    padding: 16px !important;
+}
+
+/* Expanders & Chat Cards */
+div[data-testid="stExpander"] {
     background-color: #161b22 !important;
     border: 1px solid #30363d !important;
     border-radius: 8px !important;
 }
-
-/* Sleek Cards & Glassmorphism */
 div[data-testid="stChatMessage"] {
-    border: 1px solid #30363d !important;
-    border-radius: 10px !important;
     background-color: #161b22 !important;
-}
-
-div[data-testid="stExpander"] {
     border: 1px solid #30363d !important;
-    border-radius: 10px !important;
-    background-color: #161b22 !important;
+    border-radius: 8px !important;
 }
-
 div[data-testid="stMetric"] {
     border: 1px solid #30363d !important;
-    border-radius: 10px !important;
+    border-radius: 8px !important;
     background-color: #161b22 !important;
     padding: 12px;
 }
 
-.eyebrow {
-    color: #8b949e;
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    font-weight: 700;
+/* Selectbox & Popovers */
+div[data-baseweb="select"] > div {
+    background-color: #161b22 !important;
+    border-color: #30363d !important;
+    color: #f0f6fc !important;
+    border-radius: 6px !important;
+}
+div[data-baseweb="popover"], div[data-baseweb="menu"], ul[role="listbox"] {
+    background-color: #161b22 !important;
+    border: 1px solid #30363d !important;
+}
+li[role="option"] {
+    color: #c9d1d9 !important;
+    background-color: #161b22 !important;
+}
+li[role="option"]:hover, li[aria-selected="true"] {
+    background-color: #21262d !important;
+    color: #58a6ff !important;
 }
 
-.hero-note {
-    color: #8b949e;
-    font-size: 16px;
-    margin-bottom: 20px;
+/* Tabs */
+button[data-baseweb="tab"] {
+    background-color: transparent !important;
+    color: #8b949e !important;
+    border-bottom: 2px solid transparent !important;
+}
+button[data-baseweb="tab"][aria-selected="true"] {
+    color: #58a6ff !important;
+    border-bottom: 2px solid #58a6ff !important;
 }
 
-/* Pill Badges & Stage Indicators */
+/* Stepper Pills */
+.stage-stepper {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 18px 0;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.stepper-pill {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+.stepper-pill.active {
+    background: rgba(56, 139, 253, 0.15);
+    border-color: #58a6ff;
+    color: #58a6ff;
+}
+
+/* Subheading Stage Badges */
 .duck-badge {
     padding: 3px 10px;
     border-radius: 9999px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 600;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -107,96 +268,34 @@ div[data-testid="stMetric"] {
     margin-right: 6px;
     vertical-align: middle;
 }
-
 .badge-predict {
     background: rgba(59, 130, 246, 0.15);
     color: #60a5fa;
     border: 1px solid rgba(59, 130, 246, 0.35);
 }
-
 .badge-investigate {
     background: rgba(234, 179, 8, 0.15);
     color: #facc15;
     border: 1px solid rgba(234, 179, 8, 0.35);
 }
-
 .badge-check {
     background: rgba(16, 185, 129, 0.15);
     color: #34d399;
     border: 1px solid rgba(16, 185, 129, 0.35);
 }
-
 .badge-reflect {
     background: rgba(139, 92, 246, 0.15);
     color: #a78bfa;
     border: 1px solid rgba(139, 92, 246, 0.35);
 }
-
 .badge-offline {
     background: rgba(245, 158, 11, 0.12);
     color: #fbbf24;
     border: 1px solid rgba(245, 158, 11, 0.25);
 }
 
-/* Custom Header Bar */
-.duck-header-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 18px;
-    border-radius: 10px;
-    background: #161b22;
-    border: 1px solid #30363d;
-    margin-bottom: 24px;
-}
-
-.duck-header-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.duck-header-right {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.duck-logo {
-    font-size: 1.25rem;
-}
-
-.duck-title {
-    font-weight: 700;
-    font-size: 1.05rem;
-    color: #f0f6fc;
-    letter-spacing: -0.02em;
-}
-
-.duck-edition {
-    font-size: 0.72rem;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 9999px;
-    background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    letter-spacing: 0.02em;
-}
-
-.duck-team {
-    font-size: 0.8rem;
-    color: #8b949e;
-}
-
-.duck-version {
-    font-family: 'JetBrains Mono', monospace !important;
-    font-size: 0.72rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: #21262d;
-    color: #c9d1d9;
-    border: 1px solid #30363d;
+hr {
+    border-color: #21262d !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -336,23 +435,19 @@ with learn:
     st.write(exercise.spec)
 
     cur_stage = session["stage"]
-    p_active = cur_stage == "predict"
-    i_active = cur_stage == "guide" and session.get("attempts", 0) == 0
-    c_active = cur_stage == "guide" and session.get("attempts", 0) > 0
-    r_active = cur_stage == "reflect"
-    p_style = "opacity: 1; box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);" if p_active else "opacity: 0.45;"
-    i_style = "opacity: 1; box-shadow: 0 0 10px rgba(234, 179, 8, 0.4);" if i_active else "opacity: 0.45;"
-    c_style = "opacity: 1; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);" if c_active else "opacity: 0.45;"
-    r_style = "opacity: 1; box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);" if r_active else "opacity: 0.45;"
+    p_act = "active" if cur_stage == "predict" else ""
+    i_act = "active" if cur_stage == "guide" and session.get("attempts", 0) == 0 else ""
+    c_act = "active" if cur_stage == "guide" and session.get("attempts", 0) > 0 else ""
+    r_act = "active" if cur_stage == "reflect" else ""
 
-    st.markdown(f"""<div style="display: flex; align-items: center; gap: 8px; margin: 10px 0 20px 0; flex-wrap: wrap;">
-      <span class="duck-badge badge-predict" style="{p_style}">01 Predict</span>
-      <span style="color: #484f58;">→</span>
-      <span class="duck-badge badge-investigate" style="{i_style}">02 Investigate</span>
-      <span style="color: #484f58;">→</span>
-      <span class="duck-badge badge-check" style="{c_style}">03 Check</span>
-      <span style="color: #484f58;">→</span>
-      <span class="duck-badge badge-reflect" style="{r_style}">04 Reflect</span>
+    st.markdown(f"""<div class="stage-stepper">
+      <span class="stepper-pill {p_act}">01 Predict</span>
+      <span style="color: #484f58; display: flex; align-items: center;">→</span>
+      <span class="stepper-pill {i_act}">02 Investigate</span>
+      <span style="color: #484f58; display: flex; align-items: center;">→</span>
+      <span class="stepper-pill {c_act}">03 Check</span>
+      <span style="color: #484f58; display: flex; align-items: center;">→</span>
+      <span class="stepper-pill {r_act}">04 Reflect</span>
     </div>""", unsafe_allow_html=True)
 
     left, right = st.columns([1.15, 1], gap="large")
